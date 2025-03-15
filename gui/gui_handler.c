@@ -4,21 +4,11 @@
 UBYTE *black_image;
 UWORD image_size = (OLED_1in5_RGB_WIDTH * 2) * OLED_1in5_RGB_HEIGHT;
 
-typedef struct
-{
-    uint8_t vertical_spacing;
-    uint8_t horizontal_spacing;
-    uint8_t pad_x;
-    uint8_t pad_y;
-    uint8_t radius;
-}gui_settings_t;
-
-gui_settings_t settings;
-
 void update_parameter(gui_parameters_t *param);
-void compose_string(measurement_data_t *data, char str[MAX_STRING_SIZE]);
+void compose_string(float voltage, float current, char str[MAX_STRING_SIZE]);
 void compose_voltage_string(float voltage, char v_string[MAX_STRING_SIZE/2]);
 void compose_current_string(float current, char c_string[MAX_STRING_SIZE/2]);
+void draw_arrow(uint8_t pos);
 
 gui_error_codes_t initialize_gui(void)
 {
@@ -51,7 +41,8 @@ gui_error_codes_t update_gui(gui_parameters_t *param)
     Paint_SelectImage(black_image);
     Paint_Clear(BLACK);
 
-    Paint_DrawString_EN(10, 0, "Power Supply Controller", &Font8, BLACK, YELLOW);
+    Paint_DrawString_EN(50, 0, "PSU", &Font16, BLACK, HEADING_PSU_COLOR);
+    Paint_DrawString_EN(10, 20, "Controller", &Font16, BLACK, HEADING_CONTROLLER_COLOR);
 
     update_parameter(param);
 
@@ -65,9 +56,13 @@ void update_parameter(gui_parameters_t *param)
     char str[MAX_STRING_SIZE];
     uint16_t color;
 
+    draw_arrow(param->cursor_position);
+
     for(uint8_t i = 0; i < NUMBER_OF_CHANNELS; i++)
     {
-        compose_string(&param->measurements[i], str);
+        compose_string(param->measurements[i].voltage,
+                       param->measurements[i].current,
+                       str);
 
         if(param->measurements[i].output_state == OUTPUT_ACTIVE)
         {
@@ -78,22 +73,28 @@ void update_parameter(gui_parameters_t *param)
             color = RED;
         }
 
-        Paint_DrawCircle(10, 50 + i * 20, 5, color, DOT_PIXEL_1X1, DRAW_FILL_FULL);
-        Paint_DrawCircle(10, 50 + i * 20, 5, YELLOW, DOT_PIXEL_1X1, DRAW_FILL_EMPTY);
-        Paint_DrawString_EN(20, 45 + i* 20, str, &Font12, BLACK, YELLOW);
+        Paint_DrawCircle(CIRCLE_X, START_Y + i * PADY, CIRCLE_RADIUS, color, DOT_PIXEL_1X1, DRAW_FILL_FULL);
+        Paint_DrawCircle(CIRCLE_X, START_Y + i * PADY, CIRCLE_RADIUS, CIRCLE_COLOR, DOT_PIXEL_1X1, DRAW_FILL_EMPTY);
+        Paint_DrawString_EN(TEXT_X, START_Y - CIRCLE_RADIUS + i * PADY, str, &Font12, BLACK, TEXT_COLOR);
     }
 
 }
 
-void compose_string(measurement_data_t *data, char str[MAX_STRING_SIZE])
+void compose_string(float voltage, float current, char str[MAX_STRING_SIZE])
 {
     char voltage_str[MAX_STRING_SIZE/2];
     char current_str[MAX_STRING_SIZE/2];
 
-    compose_voltage_string(data->voltage, voltage_str);
-    compose_current_string(data->current, current_str);
+    compose_voltage_string(voltage, voltage_str);
+    compose_current_string(current, current_str);
 
     sprintf(str, "%s %s", voltage_str, current_str);
+}
+
+void draw_arrow(uint8_t pos)
+{
+    Paint_DrawLine(ARROW_X, START_Y - ARROW_HEIGHT + PADY * pos, ARROW_X + ARROW_LENGTH, START_Y + PADY * pos, ARROW_COLOR, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+    Paint_DrawLine(ARROW_X + ARROW_LENGTH, START_Y + PADY * pos, ARROW_X, START_Y + ARROW_HEIGHT + PADY * pos, ARROW_COLOR, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
 }
 
 void compose_voltage_string(float voltage, char v_string[MAX_STRING_SIZE/2])

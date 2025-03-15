@@ -3,14 +3,16 @@ DIR_CONFIG   = ${THIRD_PARTY}/config
 DIR_OLED     = ${THIRD_PARTY}/oled
 DIR_FONTS    = ${THIRD_PARTY}/fonts
 DIR_GUI      = ${THIRD_PARTY}/gui
+DIR_GUI_H    = gui/
 DIR_BIN      = ./bin
 
 TARGET = main
+OUT = out
 
-OBJ_C = $(wildcard ${DIR_OLED}/*.c ${DIR_CONFIG}/*.c ${DIR_FONTS}/*.c ${DIR_GUI}/*.c) ${TARGET}.c
+OBJ_C = $(wildcard ${DIR_OLED}/*.c ${DIR_CONFIG}/*.c ${DIR_FONTS}/*.c ${DIR_GUI}/*.c ${DIR_GUI_H}/*.c) ${TARGET}.c
 OBJ_O = $(patsubst %.c,${DIR_BIN}/%.o,$(notdir ${OBJ_C}))
 
-INCLUDES= -I$(DIR_CONFIG) -I$(DIR_OLED) -I$(DIR_FONTS) -I$(DIR_GUI)
+INCLUDES= -I$(DIR_CONFIG) -I$(DIR_OLED) -I$(DIR_FONTS) -I$(DIR_GUI) -I$(DIR_GUI_H)
 
 # USELIB = USE_BCM2835_LIB
 # USELIB = USE_WIRINGPI_LIB
@@ -31,7 +33,7 @@ CFLAGS += $(MSG) $(DEBUG)
 
 ${TARGET}: $(OBJ_O)
 	$(MKDIR)
-	$(CC) $(CFLAGS) $(OBJ_O) -o $@ $(LIB)
+	$(CC) $(CFLAGS) $(OBJ_O) -o ${OUT} $(LIB)
 
 ${DIR_BIN}/main.o: main.c
 	$(MKDIR)
@@ -46,6 +48,9 @@ ${DIR_BIN}/%.o: ${DIR_FONTS}/%.c
 	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
 
 ${DIR_BIN}/%.o:$(DIR_GUI)/%.c
+	$(CC) $(CFLAGS) -c  $< -o $@ $(INCLUDES)
+
+${DIR_BIN}/%.o:$(DIR_GUI_H)/%.c
 	$(CC) $(CFLAGS) -c  $< -o $@ $(INCLUDES)
 
 ${DIR_BIN}/%.o: ${DIR_CONFIG}/%.c
