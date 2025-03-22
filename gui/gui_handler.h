@@ -33,6 +33,11 @@ typedef enum
     GUI_OK
 }gui_error_codes_t;
 
+typedef enum
+{
+    GUI_NOT_UPDATING,
+    GUI_UPDATING
+}gui_state_t;
 
 typedef struct
 {
@@ -52,5 +57,6 @@ typedef struct
 
 gui_error_codes_t initialize_gui(void);
 gui_error_codes_t update_gui(gui_parameters_t *param);
+gui_state_t get_gui_state();
 
 #endif

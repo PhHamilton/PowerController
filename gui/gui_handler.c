@@ -4,6 +4,8 @@
 UBYTE *black_image;
 UWORD image_size = (OLED_1in5_RGB_WIDTH * 2) * OLED_1in5_RGB_HEIGHT;
 
+gui_state_t gui_state = GUI_NOT_UPDATING;
+
 void update_parameter(gui_parameters_t *param);
 void compose_string(float voltage, float current, char str[MAX_STRING_SIZE]);
 void compose_voltage_string(float voltage, char v_string[MAX_STRING_SIZE/2]);
@@ -33,9 +35,14 @@ gui_error_codes_t initialize_gui(void)
 
     return GUI_OK;
 }
+gui_state_t get_gui_state()
+{
+    return gui_state;
+}
 
 gui_error_codes_t update_gui(gui_parameters_t *param)
 {
+    gui_state = GUI_UPDATING;
     Paint_NewImage(black_image, OLED_1in5_RGB_WIDTH, OLED_1in5_RGB_HEIGHT, 0, BLACK);
     Paint_SetScale(65);
     Paint_SelectImage(black_image);
@@ -47,6 +54,8 @@ gui_error_codes_t update_gui(gui_parameters_t *param)
     update_parameter(param);
 
     OLED_1in5_rgb_Display(black_image);
+
+    gui_state = GUI_NOT_UPDATING;
 
     return GUI_OK;
 }
