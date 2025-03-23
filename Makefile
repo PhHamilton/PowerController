@@ -6,17 +6,18 @@ DIR_GUI      = ${THIRD_PARTY}/gui
 DIR_GUI_H    = gui
 DIR_ROT      = rotary_encoder
 DIR_MENU     = menu_handler
+DIR_OUTPUT   = output_handler
 DIR_BIN      = ./bin
 
 TARGET = main
 OUT = out
 
-OBJ_C = $(wildcard ${DIR_OLED}/*.c ${DIR_CONFIG}/*.c ${DIR_FONTS}/*.c ${DIR_GUI}/*.c ${DIR_GUI_H}/*.c ${DIR_ROT}/*.c ${DIR_MENU}/*.c) ${TARGET}.c
+OBJ_C = $(wildcard ${DIR_OLED}/*.c ${DIR_CONFIG}/*.c ${DIR_FONTS}/*.c ${DIR_GUI}/*.c ${DIR_GUI_H}/*.c ${DIR_ROT}/*.c ${DIR_MENU}/*.c ${DIR_OUTPUT}/*.c) ${TARGET}.c
 OBJ_O = $(patsubst %.c,${DIR_BIN}/%.o,$(notdir ${OBJ_C}))
 
-INCLUDES= -I$(DIR_CONFIG) -I$(DIR_OLED) -I$(DIR_FONTS) -I$(DIR_GUI) -I$(DIR_GUI_H) -I$(DIR_ROT) -I$(DIR_MENU)
+INCLUDES= -I$(DIR_CONFIG) -I$(DIR_OLED) -I$(DIR_FONTS) -I$(DIR_GUI) -I$(DIR_GUI_H) -I$(DIR_ROT) -I$(DIR_MENU) -I$(DIR_OUTPUT)
 
-# USELIB = USE_BCM2835_LIB
+ USELIB = USE_BCM2835_LIB
 # USELIB = USE_WIRINGPI_LIB
 USELIB = USE_DEV_LIB
 DEBUG = -D $(USELIB)
@@ -59,6 +60,9 @@ ${DIR_BIN}/%.o:$(DIR_ROT)/%.c
 	$(CC) $(CFLAGS) -c  $< -o $@ $(INCLUDES)
 
 ${DIR_BIN}/%.o:$(DIR_MENU)/%.c
+	$(CC) $(CFLAGS) -c  $< -o $@ $(INCLUDES)
+
+${DIR_BIN}/%.o:$(DIR_OUTPUT)/%.c
 	$(CC) $(CFLAGS) -c  $< -o $@ $(INCLUDES)
 
 ${DIR_BIN}/%.o: ${DIR_CONFIG}/%.c
