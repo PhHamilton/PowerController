@@ -108,9 +108,13 @@ void draw_arrow(uint8_t pos)
 
 void compose_voltage_string(float voltage, char v_string[MAX_STRING_SIZE/2])
 {
-    if(voltage < 10)
+    if(voltage < 10 && voltage > 0)
     {
         sprintf(v_string, "%0.1f V", voltage);
+    }
+    else if(voltage < 0)
+    {
+        sprintf(v_string, "%i V", (int8_t) voltage);
     }
     else
     {

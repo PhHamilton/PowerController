@@ -7,15 +7,17 @@ DIR_GUI_H    = gui
 DIR_ROT      = rotary_encoder
 DIR_MENU     = menu_handler
 DIR_OUTPUT   = output_handler
+DIR_CURRENT  = current_handler
+DIR_I2C      = i2c_handler
 DIR_BIN      = ./bin
 
 TARGET = main
 OUT = out
 
-OBJ_C = $(wildcard ${DIR_OLED}/*.c ${DIR_CONFIG}/*.c ${DIR_FONTS}/*.c ${DIR_GUI}/*.c ${DIR_GUI_H}/*.c ${DIR_ROT}/*.c ${DIR_MENU}/*.c ${DIR_OUTPUT}/*.c) ${TARGET}.c
+OBJ_C = $(wildcard ${DIR_OLED}/*.c ${DIR_CONFIG}/*.c ${DIR_FONTS}/*.c ${DIR_GUI}/*.c ${DIR_GUI_H}/*.c ${DIR_ROT}/*.c ${DIR_MENU}/*.c ${DIR_OUTPUT}/*.c ${DIR_CURRENT}/*.c ${DIR_I2C}/*.c) ${TARGET}.c
 OBJ_O = $(patsubst %.c,${DIR_BIN}/%.o,$(notdir ${OBJ_C}))
 
-INCLUDES= -I$(DIR_CONFIG) -I$(DIR_OLED) -I$(DIR_FONTS) -I$(DIR_GUI) -I$(DIR_GUI_H) -I$(DIR_ROT) -I$(DIR_MENU) -I$(DIR_OUTPUT)
+INCLUDES= -I$(DIR_CONFIG) -I$(DIR_OLED) -I$(DIR_FONTS) -I$(DIR_GUI) -I$(DIR_GUI_H) -I$(DIR_ROT) -I$(DIR_MENU) -I$(DIR_OUTPUT) -I$(DIR_CURRENT) -I$(DIR_I2C)
 
  USELIB = USE_BCM2835_LIB
 # USELIB = USE_WIRINGPI_LIB
@@ -68,6 +70,16 @@ ${DIR_BIN}/%.o:$(DIR_OUTPUT)/%.c
 ${DIR_BIN}/%.o: ${DIR_CONFIG}/%.c
 	$(MKDIR)
 	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
+
+${DIR_BIN}/%.o: ${DIR_CURRENT}/%.c
+	$(MKDIR)
+	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
+
+${DIR_BIN}/%.o: ${DIR_I2C}/%.c
+	$(MKDIR)
+	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
+
+
 
 clean:
 	rm -f $(DIR_BIN)/*.o $(TARGET)

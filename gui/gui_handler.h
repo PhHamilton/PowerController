@@ -4,18 +4,18 @@
 #include "OLED_1in5_rgb.h"
 #include "GUI_Paint.h"
 
-#define NUMBER_OF_CHANNELS 3
+#define NUMBER_OF_CHANNELS 4
 #define MAX_STRING_SIZE    50
 
 #define PADX 10
-#define PADY 20
+#define PADY 15
 
 #define CIRCLE_RADIUS 5
 #define ARROW_HEIGHT  CIRCLE_RADIUS
 #define ARROW_LENGTH  CIRCLE_RADIUS
 
 #define START_X 5
-#define START_Y 60
+#define START_Y 50
 
 #define HEADING_PSU_COLOR        YELLOW
 #define HEADING_CONTROLLER_COLOR YELLOW
@@ -44,6 +44,7 @@ typedef struct
     uint8_t cursor_position;
     struct
     {
+        uint8_t address;
         float voltage;
         float current;
         enum
