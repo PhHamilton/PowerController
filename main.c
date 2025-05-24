@@ -19,7 +19,7 @@ gui_parameters_t param = {0};
 
 
 float rand_vec[3] = {2.54, 2.34, 2.55};
-const uint8_t output_pins[NUMBER_OF_CHANNELS] = {25, 24, 27, 28};
+const uint8_t output_pins[NUMBER_OF_CHANNELS] = {24, 25, 27, 28};
 
 void sleep_ms(uint32_t m_sec);
 
@@ -97,16 +97,32 @@ int main(int argc, char *argv[])
         {
             if(param.measurements[i].output_state == OUTPUT_INACTIVE) continue;
 
-            if(get_output_state(i) == OUTPUT_ENABLED) continue;
-
-            printf("Changing output State");
-
-            if(!change_output_state(i, OUTPUT_ENABLED))
-            {
-                printf("Failed to change output state");
-            }
-
         }
+
+        for(uint8_t i = 0; i < NUMBER_OF_CHANNELS; i++)
+        {
+           if(get_output_state(i) == OUTPUT_ENABLED &&
+              param.measurements[i].output_state == OUTPUT_INACTIVE)
+           {
+                if(!change_output_state(i, OUTPUT_DISABLED))
+                {
+                    printf("Failed to change output state");
+                }
+           }
+           else if(get_output_state(i) == OUTPUT_DISABLED &&
+              param.measurements[i].output_state == OUTPUT_ACTIVE)
+           {
+                if(!change_output_state(i, OUTPUT_ENABLED))
+                {
+                    printf("Failed to change output state");
+                }
+           }
+           else
+           {
+                continue;
+           }
+       }
+
         param.measurements[0].current = rand_vec[i];
         update_gui(&param);
         i++;
