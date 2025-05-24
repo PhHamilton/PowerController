@@ -18,11 +18,6 @@ volatile int button_pressed = -1;
 
 bool initialize_rotary_encoder()
 {
-    if(wiringPiSetup() == -1)
-    {
-        printf("Failed to initialize wiringPi\n");
-        return false;
-    }
     pinMode(CLK_PIN, INPUT);
     pinMode(DT_PIN, INPUT);
     pinMode(SW_PIN, INPUT);

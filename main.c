@@ -13,12 +13,13 @@
 #include "gui_handler.h"
 #include "rotary_encoder_handler.h"
 #include "ina219.h"
+#include "output_handler.h"
 
 gui_parameters_t param = {0};
 
 
 float rand_vec[3] = {2.54, 2.34, 2.55};
-const uint8_t output_pins[NUMBER_OF_CHANNELS] = {26, 19, 1, 20};
+const uint8_t output_pins[NUMBER_OF_CHANNELS] = {25, 24, 27, 28};
 
 void sleep_ms(uint32_t m_sec);
 
@@ -37,6 +38,15 @@ int main(int argc, char *argv[])
     signal(SIGINT, Handler);
 
     INA219_t ina_data = {0};
+
+
+    if(wiringPiSetup() == -1)
+    {
+        printf("Failed to initialize wiringPi\n");
+        return false;
+    }
+
+    initialize_output_handler(output_pins);
 
     param.cursor_position = 0;
     param.measurements[0].address = 0x40;
@@ -83,13 +93,20 @@ int main(int argc, char *argv[])
         }
 
         // Read measurements
-/*
         for(uint8_t i = 0; i < NUMBER_OF_CHANNELS; i++)
         {
             if(param.measurements[i].output_state == OUTPUT_INACTIVE) continue;
 
+            if(get_output_state(i) == OUTPUT_ENABLED) continue;
+
+            printf("Changing output State");
+
+            if(!change_output_state(i, OUTPUT_ENABLED))
+            {
+                printf("Failed to change output state");
+            }
+
         }
-*/
         param.measurements[0].current = rand_vec[i];
         update_gui(&param);
         i++;

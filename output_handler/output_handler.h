@@ -3,18 +3,19 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <stdio.h>
 
-#define N_CHANNELS 3
+#define N_CHANNELS 4
 
 typedef enum
 {
-    OUTPUT_DISABLED,
-    OUTPUT_ENABLED
+    OUTPUT_ENABLED,
+    OUTPUT_DISABLED
 }output_state_t;
 
-bool initialize_output_handler(uint8_t pin_numbers[N_CHANNELS]);
+bool initialize_output_handler(const uint8_t pin_numbers[N_CHANNELS]);
 bool change_output_state(uint8_t output_number, output_state_t state);
-bool get_output_state(uint8_t output_number);
+output_state_t get_output_state(uint8_t output_number);
 bool reset_all_outputs(void);
 
 #endif //__OUTPUT_HANDLER_H__
