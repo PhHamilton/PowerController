@@ -3,8 +3,8 @@
 
 #include "OLED_1in5_rgb.h"
 #include "GUI_Paint.h"
+#include "main.h"
 
-#define NUMBER_OF_CHANNELS 4
 #define MAX_STRING_SIZE    50
 
 #define PADX 10

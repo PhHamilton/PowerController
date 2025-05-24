@@ -86,14 +86,14 @@ void rotary_isr()
   // Update counter if encoder has rotated a full indent, that is at least 4 steps
   if( encval > 3 ) // Four steps forward
   {
-    counter++;              // Increase counter
+    counter--;               // Decrease counter
     counter = constrain_interval(counter);
     printf("%i\n", counter);
     encval = 0;
   }
   else if( encval < -3 ) // Four steps backwards
   {
-    counter--;               // Decrease counter
+    counter++;              // Increase counter
     counter = constrain_interval(counter);
     printf("%i\n", counter);
     encval = 0;

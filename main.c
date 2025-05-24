@@ -15,8 +15,8 @@
 #include "ina219.h"
 #include "output_handler.h"
 
-gui_parameters_t param = {0};
-
+gui_parameters_t gui_parameters = {0};
+float default_voltages[NUMBER_OF_CHANNELS] = {3.3, 5, 12, -12};
 
 float rand_vec[3] = {2.54, 2.34, 2.55};
 const uint8_t output_pins[NUMBER_OF_CHANNELS] = {24, 25, 27, 28};
@@ -46,28 +46,33 @@ int main(int argc, char *argv[])
         return false;
     }
 
-    initialize_output_handler(output_pins);
+    printf("Initializing output handler..\n");
+    if(!initialize_output_handler(output_pins))
+    {
+        printf("Failed to output handler\r\n");
+        return 0;
+    }
 
-    param.cursor_position = 0;
-    param.measurements[0].address = 0x40;
-    param.measurements[0].voltage = 3.3f;
-    param.measurements[0].current = 2;
-    param.measurements[0].output_state = OUTPUT_INACTIVE;
+    gui_parameters.cursor_position = 0;
+    gui_parameters.measurements[0].address = 0x40;
+    gui_parameters.measurements[0].voltage = 3.3f;
+    gui_parameters.measurements[0].current = 2;
+    gui_parameters.measurements[0].output_state = OUTPUT_INACTIVE;
 
-    param.measurements[1].address = 0x41;
-    param.measurements[1].voltage = 5;
-    param.measurements[1].current = 0.23;
-    param.measurements[1].output_state = OUTPUT_INACTIVE;
+    gui_parameters.measurements[1].address = 0x41;
+    gui_parameters.measurements[1].voltage = 5;
+    gui_parameters.measurements[1].current = 0.23;
+    gui_parameters.measurements[1].output_state = OUTPUT_INACTIVE;
 
-    param.measurements[2].address = 0x44;
-    param.measurements[2].voltage = 12;
-    param.measurements[2].current = 0.02;
-    param.measurements[2].output_state = OUTPUT_INACTIVE;
+    gui_parameters.measurements[2].address = 0x44;
+    gui_parameters.measurements[2].voltage = 12;
+    gui_parameters.measurements[2].current = 0.02;
+    gui_parameters.measurements[2].output_state = OUTPUT_INACTIVE;
 
-    param.measurements[3].address = 0x45;
-    param.measurements[3].voltage = -12;
-    param.measurements[3].current = 0.02;
-    param.measurements[3].output_state = OUTPUT_INACTIVE;
+    gui_parameters.measurements[3].address = 0x45;
+    gui_parameters.measurements[3].voltage = -12;
+    gui_parameters.measurements[3].current = 0.02;
+    gui_parameters.measurements[3].output_state = OUTPUT_INACTIVE;
 
     if(!initialize_rotary_encoder())
     {
@@ -75,18 +80,22 @@ int main(int argc, char *argv[])
         return 0;
     }
 
-    initialize_gui();
+    if(initialize_gui() != GUI_OK)
+    {
+        printf("Failed to initialize GUI\r\n");
+        return 0;
+    }
 
     uint8_t i = 0;
 
     while(1)
     {
-        param.cursor_position = get_position();
+        gui_parameters.cursor_position = get_position();
         int8_t switch_pressed = check_switch();
 
         if(switch_pressed != SWITCH_NOT_PRESSED)
         {
-            param.measurements[switch_pressed].output_state = param.measurements[switch_pressed].output_state == OUTPUT_ACTIVE ? OUTPUT_INACTIVE : OUTPUT_ACTIVE;
+            gui_parameters.measurements[switch_pressed].output_state = gui_parameters.measurements[switch_pressed].output_state == OUTPUT_ACTIVE ? OUTPUT_INACTIVE : OUTPUT_ACTIVE;
             ina_data.address = 0x40;
             ina219_measure(&ina_data);
             printf("Voltage: %f, Current: %f\n", ina_data.voltage, ina_data.current);
@@ -95,36 +104,35 @@ int main(int argc, char *argv[])
         // Read measurements
         for(uint8_t i = 0; i < NUMBER_OF_CHANNELS; i++)
         {
-            if(param.measurements[i].output_state == OUTPUT_INACTIVE) continue;
+            if(gui_parameters.measurements[i].output_state == OUTPUT_INACTIVE)
+            {
+                continue;
+            }
 
+            if(get_output_state(i) == OUTPUT_ENABLED &&
+                  gui_parameters.measurements[i].output_state == OUTPUT_INACTIVE)
+               {
+                    if(!change_output_state(i, OUTPUT_DISABLED))
+                    {
+                        printf("Failed to change output state");
+                    }
+               }
+               else if(get_output_state(i) == OUTPUT_DISABLED &&
+                  gui_parameters.measurements[i].output_state == OUTPUT_ACTIVE)
+               {
+                    if(!change_output_state(i, OUTPUT_ENABLED))
+                    {
+                        printf("Failed to change output state");
+                    }
+               }
+               else
+               {
+                    continue;
+               }
         }
 
-        for(uint8_t i = 0; i < NUMBER_OF_CHANNELS; i++)
-        {
-           if(get_output_state(i) == OUTPUT_ENABLED &&
-              param.measurements[i].output_state == OUTPUT_INACTIVE)
-           {
-                if(!change_output_state(i, OUTPUT_DISABLED))
-                {
-                    printf("Failed to change output state");
-                }
-           }
-           else if(get_output_state(i) == OUTPUT_DISABLED &&
-              param.measurements[i].output_state == OUTPUT_ACTIVE)
-           {
-                if(!change_output_state(i, OUTPUT_ENABLED))
-                {
-                    printf("Failed to change output state");
-                }
-           }
-           else
-           {
-                continue;
-           }
-       }
-
-        param.measurements[0].current = rand_vec[i];
-        update_gui(&param);
+        gui_parameters.measurements[0].current = rand_vec[i];
+        update_gui(&gui_parameters);
         i++;
 
         if(i > 2)

@@ -10,15 +10,14 @@ typedef struct
 bool turn_on_output(uint8_t output_number);
 bool turn_off_output(uint8_t output_number);
 
-output_settings_t outputs[N_CHANNELS];
+output_settings_t outputs[NUMBER_OF_CHANNELS];
 
-bool initialize_output_handler(const uint8_t pin_numbers[N_CHANNELS])
+bool initialize_output_handler(const uint8_t pin_numbers[NUMBER_OF_CHANNELS])
 {
 
-    printf("Initializing output handler..\n");
 
     printf("Initializing pins:\n");
-    for(uint8_t i = 0; i < N_CHANNELS; i++)
+    for(uint8_t i = 0; i < NUMBER_OF_CHANNELS; i++)
     {
         outputs[i].pin_number = pin_numbers[i];
 
@@ -67,7 +66,7 @@ output_state_t get_output_state(uint8_t output_number)
 
 bool reset_all_outputs(void)
 {
-    for(uint8_t i = 0; i < N_CHANNELS; i++)
+    for(uint8_t i = 0; i < NUMBER_OF_CHANNELS; i++)
     {
         if(!turn_off_output(i))
         {
