@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include "i2c_handler.h"
+#include "main.h"
 
 #define SHUNT_RESISTANCE 0.1
 
@@ -11,11 +12,23 @@
 
 typedef struct
 {
-    uint8_t address;
-    float voltage;
-    float current;
-    float power;
-    uint16_t calibration_value;
+    float shunt_resistance;
+
+    struct
+    {
+        uint8_t address;
+        float max_current;
+        float current_lsb;
+        float power_lsb;
+        uint16_t calibration_value;
+   }channel_config[NUMBER_OF_CHANNELS];
+
+    struct
+    {
+        float voltage;
+        float current;
+        float power;
+    }channel_data[NUMBER_OF_CHANNELS];
 }INA219_t;
 
 typedef enum
@@ -26,10 +39,10 @@ typedef enum
     INA219_WARNING_MATH_OVERFLOW = -3
 }INA219_STATUS_t;
 
-INA219_STATUS_t ina219_initialize(INA219_t *conf);
-INA219_STATUS_t ina219_measure(INA219_t *conf);
-INA219_STATUS_t ina219_turn_on_readings(INA219_t *conf);
-INA219_STATUS_t ina219_turn_off_readings(INA219_t *conf);
-INA219_STATUS_t ina219_reset(void);
+INA219_STATUS_t ina219_calibrate(INA219_t *conf, uint8_t channel);
+INA219_STATUS_t ina219_measure(INA219_t *conf, uint8_t channel);
+INA219_STATUS_t ina219_turn_on_readings(INA219_t *conf, uint8_t channel);
+INA219_STATUS_t ina219_turn_off_readings(INA219_t *conf, uint8_t channel);
+INA219_STATUS_t ina219_reset(INA219_t *conf);
 
 #endif //__INA219_H__

@@ -21,6 +21,9 @@ float default_voltages[NUMBER_OF_CHANNELS] = {3.3, 5, 12, -12};
 float rand_vec[3] = {2.54, 2.34, 2.55};
 const uint8_t output_pins[NUMBER_OF_CHANNELS] = {24, 25, 27, 28};
 
+
+INA219_t ina_data = {0};
+
 void sleep_ms(uint32_t m_sec);
 
 void  Handler(int signo)
@@ -37,7 +40,6 @@ int main(int argc, char *argv[])
     // Exception handling:ctrl + c
     signal(SIGINT, Handler);
 
-    INA219_t ina_data = {0};
 
 
     if(wiringPiSetup() == -1)
@@ -74,15 +76,26 @@ int main(int argc, char *argv[])
     gui_parameters.measurements[3].current = 0.02;
     gui_parameters.measurements[3].output_state = OUTPUT_INACTIVE;
 
+
+    if(initialize_gui() != GUI_OK)
+    {
+        printf("Failed to initialize GUI\r\n");
+        return 0;
+    }
+
     if(!initialize_rotary_encoder())
     {
         printf("Failed to initialize rotary encoder\r\n");
         return 0;
     }
 
-    if(initialize_gui() != GUI_OK)
+    ina_data.channel_config[0].address = 0x40;
+    ina_data.channel_config[0].max_current = 1.0f;
+
+
+    if(ina219_calibrate(&ina_data, 0) != INA219_OK)
     {
-        printf("Failed to initialize GUI\r\n");
+        printf("Failed to initialize ina219\r\n");
         return 0;
     }
 
@@ -96,9 +109,8 @@ int main(int argc, char *argv[])
         if(switch_pressed != SWITCH_NOT_PRESSED)
         {
             gui_parameters.measurements[switch_pressed].output_state = gui_parameters.measurements[switch_pressed].output_state == OUTPUT_ACTIVE ? OUTPUT_INACTIVE : OUTPUT_ACTIVE;
-            ina_data.address = 0x40;
-            ina219_measure(&ina_data);
-            printf("Voltage: %f, Current: %f\n", ina_data.voltage, ina_data.current);
+            ina219_measure(&ina_data, 0);
+            printf("Voltage: %f, Current: %f, Power: %f\n", ina_data.channel_data[0].voltage, ina_data.channel_data[0].current, ina_data.channel_data[0].power);
         }
 
         // Read measurements

@@ -1,0 +1,20 @@
+{
+    "MQTT":
+    {
+        "client_id": "power_controller",
+        "address": "localhost",
+        "port": 1883,
+        "subscription_topics": ["power_controller/status", "power_controller/update"],
+        "publish_topics": ["power_controller/response", "power_controller/heartbeat"],
+        "QOS": 2,
+        "keep_alive": 60,
+        "last_will":
+        {
+            "message_online": "{\"id\": \"power_controller_online\", \"online\": true}",
+            "message_offline": "{\"id\": \"power_controller_online\", \"online\": false}",
+            "topic": "power_controller/online",
+            "QOS": 2,
+            "retain": true
+        }
+    }
+}
