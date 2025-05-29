@@ -3,6 +3,7 @@
 #include <string.h>
 #include <wiringPi.h>
 #include <unistd.h>
+#include "mqtt_handler.h"
 
 #include <time.h>
 #include <errno.h>
@@ -32,7 +33,14 @@ void  Handler(int signo)
     printf("\r\nHandler:exit\r\n");
     DEV_ModuleExit();
 
+    deconstruct_mqtt();
     exit(0);
+}
+
+void mqtt_message_handler(const char* topic, const char* message)
+{
+
+    printf("Topic: %s, Message: %s\n", topic, message);
 }
 
 int main(int argc, char *argv[])
@@ -40,7 +48,25 @@ int main(int argc, char *argv[])
     // Exception handling:ctrl + c
     signal(SIGINT, Handler);
 
+    const char* config_path = "./mqtt_handler/config.json";
+    printf("Initializing mqtt handler..\n");
+    if(initialize_mqtt_handler(config_path) != MQTT_HANDLER_OK)
+    {
+        printf("Failed to initialize mqtt handler");
+        return false;
+    }
 
+    mqtt_register_callback(mqtt_message_handler);
+
+    printf("Starting mqtt handler\n");
+    if(start_mqtt_client() != MQTT_HANDLER_OK)
+    {
+        printf("Failed to start mqtt handler");
+        return false;
+    }
+
+    while(1);
+    return false;
 
     if(wiringPiSetup() == -1)
     {

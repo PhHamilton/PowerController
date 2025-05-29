@@ -1,5 +1,4 @@
 #include "mqtt_handler.h"
-#include "mosquitto.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -12,6 +11,12 @@
 mqtt_handler_status_t cleanup_and_exit(char *data, cJSON *json, mqtt_handler_status_t status);
 mqtt_handler_status_t initialize_mqtt(void);
 mqtt_handler_status_t read_config(const char* config_path);
+
+void on_connect(struct mosquitto *mosq, void *obj, int rc);
+void on_message(struct mosquitto *mosq, void *userdata, const struct mosquitto_message *message);
+
+static mqtt_message_callback_t registered_callback = NULL;
+
 typedef struct
 {
     char **topics;
@@ -234,11 +239,15 @@ mqtt_handler_status_t initialize_mqtt(void)
     mosquitto_lib_init();
 
     mqtt_client = mosquitto_new(mqtt_parameters.client_id, true, NULL);
+
     if(!mqtt_client)
     {
         fprintf(stderr, "Failed to create mosquitto client\n");
         return MQTT_HANDLER_ERROR;
     }
+
+    mosquitto_connect_callback_set(mqtt_client, on_connect);
+    mosquitto_message_callback_set(mqtt_client, on_message);
 
     if(mosquitto_will_set(mqtt_client,
                           mqtt_parameters.last_will.topic,
@@ -251,6 +260,7 @@ mqtt_handler_status_t initialize_mqtt(void)
         mosquitto_destroy(mqtt_client);
         return MQTT_HANDLER_ERROR;
     }
+
 
     int8_t ret = mosquitto_connect(
                                     mqtt_client,
@@ -277,13 +287,120 @@ mqtt_handler_status_t initialize_mqtt(void)
 
     }
 
-    mosquitto_publish(mqtt_client,
-                      NULL,
-                      mqtt_parameters_t.last_will.topic,
-                      strlen(mqtt_parameters.last_will.message_online),
-                      mqtt_parameters.last_will.message_online,
-                      mqtt_parameters.last_will.QOS,
-                      mqtt-parameters.last_will.retain);
+/*
+    if(mosquitto_publish(mqtt_client,
+                         NULL,
+                         mqtt_parameters.last_will.topic,
+                         strlen(mqtt_parameters.last_will.message_online),
+                         mqtt_parameters.last_will.message_online,
+                         mqtt_parameters.last_will.QOS,
+                         mqtt_parameters.last_will.retain) != MOSQ_ERR_SUCCESS)
+    {
+        printf("Failed to publish initial message\n");
+        mosquitto_destroy(mqtt_client);
+        mqtt_client = NULL;
+        return MQTT_HANDLER_ERROR;
+    }
+*/
 
     return MQTT_HANDLER_OK;
+}
+
+mqtt_handler_status_t start_mqtt_client(void)
+{
+    int8_t rc = mosquitto_loop_start(mqtt_client);
+    if(rc != MOSQ_ERR_SUCCESS)
+    {
+        fprintf(stderr, "Failed to start mqtt thread: %s\n", mosquitto_strerror(rc));
+        mosquitto_destroy(mqtt_client);
+        return MQTT_HANDLER_ERROR;
+    }
+
+    return MQTT_HANDLER_OK;
+}
+
+mqtt_handler_status_t publish_message(const char* topic, const char* message)
+{
+    if(!mqtt_client || !topic || !message)
+    {
+        fprintf(stderr, "Invalid publish parameters\n");
+        return MQTT_HANDLER_ERROR;
+    }
+
+    bool topic_exist = false;
+    for(uint8_t i = 0; i < mqtt_parameters.publish_topics.size; i++)
+    {
+        if(strcmp(topic, mqtt_parameters.publish_topics.topics[i]) == 0)
+        {
+            topic_exist = true;
+            break;
+        }
+    }
+
+    if(!topic_exist)
+    {
+        printf("Error: Requested publish topic '%s', does not exist in config!\n", topic);
+        return MQTT_HANDLER_ERROR;
+    }
+
+    int16_t rc = mosquitto_publish(
+                                    mqtt_client,
+                                    NULL,
+                                    topic,
+                                    (int)strlen(message),
+                                    message,
+                                    mqtt_parameters.QOS,
+                                    true);
+
+    if(rc != MOSQ_ERR_SUCCESS)
+    {
+        fprintf(stderr, "Publish failed %s\n", mosquitto_strerror(rc));
+        return MQTT_HANDLER_ERROR;
+    }
+
+    return MQTT_HANDLER_OK;
+}
+
+void mqtt_register_callback(mqtt_message_callback_t callback)
+{
+    registered_callback = callback;
+}
+
+void on_message(struct mosquitto *mosq, void *userdata, const struct mosquitto_message *message)
+{
+    if(registered_callback)
+    {
+        registered_callback(message->topic, message->payload);
+    }
+}
+
+void on_connect(struct mosquitto *mosq, void *obj, int rc)
+{
+    if(rc == MOSQ_ERR_SUCCESS)
+    {
+        publish_message(
+                         mqtt_parameters.last_will.topic,
+                         mqtt_parameters.last_will.message_online
+                       );
+    }
+    else
+    {
+        fprintf(stderr, "Failed to connect to broker: %s\n", mosquitto_strerror(rc));
+    }
+}
+
+void deconstruct_mqtt(void)
+{
+    if(mqtt_client)
+    {
+        if(publish_message(mqtt_parameters.last_will.topic, mqtt_parameters.last_will.message_offline) != MQTT_HANDLER_OK)
+        {
+            printf("Error: Failed to publish last will message on shutdown!");
+        }
+
+        mosquitto_disconnect(mqtt_client);
+        mosquitto_loop_stop(mqtt_client, true); // true = vänta tills tråden avslutas
+        mosquitto_destroy(mqtt_client);
+        mosquitto_lib_cleanup();
+    }
 }
