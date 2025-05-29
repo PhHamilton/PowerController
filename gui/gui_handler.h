@@ -49,8 +49,8 @@ typedef struct
         float current;
         enum
         {
-            OUTPUT_ACTIVE,
-            OUTPUT_INACTIVE
+            OUTPUT_INACTIVE,
+            OUTPUT_ACTIVE
         }output_state;
 
     }measurements[NUMBER_OF_CHANNELS];

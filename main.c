@@ -4,6 +4,7 @@
 #include <wiringPi.h>
 #include <unistd.h>
 #include "mqtt_handler.h"
+#include "mqtt_message_handler.h"
 
 #include <time.h>
 #include <errno.h>
@@ -37,16 +38,7 @@ void  Handler(int signo)
     exit(0);
 }
 
-void status_update_handler(const char* topic, const char* message)
-{
-    printf("Topic: %s, Message: %s\n", topic, message);
-}
 
-
-void output_update_handler(const char* topic, const char* message)
-{
-    printf("Topic: %s, Message: %s\n", topic, message);
-}
 
 int main(int argc, char *argv[])
 {
@@ -71,8 +63,10 @@ int main(int argc, char *argv[])
         return false;
     }
 
+/*
     while(1);
     return false;
+*/
 
     if(wiringPiSetup() == -1)
     {
@@ -80,12 +74,14 @@ int main(int argc, char *argv[])
         return false;
     }
 
+    /*
     printf("Initializing output handler..\n");
     if(!initialize_output_handler(output_pins))
     {
         printf("Failed to output handler\r\n");
         return 0;
     }
+    */
 
     gui_parameters.cursor_position = 0;
     gui_parameters.measurements[0].address = 0x40;
