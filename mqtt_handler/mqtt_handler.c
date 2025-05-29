@@ -15,7 +15,8 @@ mqtt_handler_status_t read_config(const char* config_path);
 void on_connect(struct mosquitto *mosq, void *obj, int rc);
 void on_message(struct mosquitto *mosq, void *userdata, const struct mosquitto_message *message);
 
-static mqtt_message_callback_t registered_callback = NULL;
+static mqtt_topic_handler_t registered_callbacks[MAX_SUBSCRIPTION_TOPICS];
+static uint8_t registered_callback_count = 0;
 
 typedef struct
 {
@@ -361,17 +362,36 @@ mqtt_handler_status_t publish_message(const char* topic, const char* message)
     return MQTT_HANDLER_OK;
 }
 
-void mqtt_register_callback(mqtt_message_callback_t callback)
+void mqtt_register_callback(const char* topic, mqtt_message_callback_t callback)
 {
-    registered_callback = callback;
+    printf("Callback registered on topic %s\n", topic);
+
+    if(registered_callback_count < MAX_SUBSCRIPTION_TOPICS)
+    {
+        registered_callbacks[registered_callback_count].topic = topic;
+        registered_callbacks[registered_callback_count].callback = callback;
+        registered_callback_count++;
+    }
+    else
+    {
+        printf("Maximum registered callbacks (%i) exceeded!\n", MAX_SUBSCRIPTION_TOPICS);
+    }
 }
 
 void on_message(struct mosquitto *mosq, void *userdata, const struct mosquitto_message *message)
 {
-    if(registered_callback)
+    const char* topic = message->topic;
+    const char* payload = message->payload;
+
+    for(uint8_t i = 0; i < registered_callback_count; i++)
     {
-        registered_callback(message->topic, message->payload);
+        if(strcmp(topic, registered_callbacks[i].topic) == 0)
+        {
+            registered_callbacks[i].callback(topic, payload);
+            return;
+        }
     }
+    printf("Error: Unhandled topic: %s\n", topic);
 }
 
 void on_connect(struct mosquitto *mosq, void *obj, int rc)

@@ -37,9 +37,14 @@ void  Handler(int signo)
     exit(0);
 }
 
-void mqtt_message_handler(const char* topic, const char* message)
+void status_update_handler(const char* topic, const char* message)
 {
+    printf("Topic: %s, Message: %s\n", topic, message);
+}
 
+
+void output_update_handler(const char* topic, const char* message)
+{
     printf("Topic: %s, Message: %s\n", topic, message);
 }
 
@@ -56,7 +61,8 @@ int main(int argc, char *argv[])
         return false;
     }
 
-    mqtt_register_callback(mqtt_message_handler);
+    mqtt_register_callback("power_controller/status_update", status_update_handler);
+    mqtt_register_callback("power_controller/output_update", output_update_handler);
 
     printf("Starting mqtt handler\n");
     if(start_mqtt_client() != MQTT_HANDLER_OK)
