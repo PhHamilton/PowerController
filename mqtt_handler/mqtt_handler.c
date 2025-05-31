@@ -4,7 +4,10 @@
 #include <stdint.h>
 #include <string.h>
 #include <stdbool.h>
+#include <pthread.h>
+#include <time.h>
 #include "cJSON.h"
+#include "mqtt_message_handler.h"
 
 #define MAX_PARAMETER_SIZE 100
 
@@ -14,6 +17,9 @@ mqtt_handler_status_t read_config(const char* config_path);
 
 void on_connect(struct mosquitto *mosq, void *obj, int rc);
 void on_message(struct mosquitto *mosq, void *userdata, const struct mosquitto_message *message);
+
+mqtt_handler_status_t start_heartbeat_thread();
+void *heartbeat_thread(void *arg);
 
 static mqtt_topic_handler_t registered_callbacks[MAX_SUBSCRIPTION_TOPICS];
 static uint8_t registered_callback_count = 0;
@@ -41,6 +47,7 @@ typedef struct
         uint8_t QOS;
         bool retain;
     }last_will;
+   uint16_t heartbeat_interval;
 }mqtt_parameters_t;
 
 static mqtt_parameters_t mqtt_parameters = {"\0"};
@@ -222,6 +229,15 @@ mqtt_handler_status_t read_config(const char* config_path)
     }
     mqtt_parameters.last_will.retain = retain_item->valueint;
 
+    cJSON *heartbeat_item = cJSON_GetObjectItem(mqtt, "heartbeat_interval");
+    if(!heartbeat_item || !cJSON_IsNumber(heartbeat_item))
+    {
+        perror("Missing 'heartbeat_interval' item\n");
+        return cleanup_and_exit(data, json, MQTT_HANDLER_ERROR);
+    }
+    mqtt_parameters.heartbeat_interval = heartbeat_item->valueint;
+
+
     return cleanup_and_exit(data, json, MQTT_HANDLER_OK);
 }
 mqtt_handler_status_t cleanup_and_exit(char *data, cJSON *json, mqtt_handler_status_t status)
@@ -288,23 +304,59 @@ mqtt_handler_status_t initialize_mqtt(void)
 
     }
 
-/*
-    if(mosquitto_publish(mqtt_client,
-                         NULL,
-                         mqtt_parameters.last_will.topic,
-                         strlen(mqtt_parameters.last_will.message_online),
-                         mqtt_parameters.last_will.message_online,
-                         mqtt_parameters.last_will.QOS,
-                         mqtt_parameters.last_will.retain) != MOSQ_ERR_SUCCESS)
+    return start_heartbeat_thread();;
+}
+
+mqtt_handler_status_t start_heartbeat_thread()
+{
+    pthread_t heartbeat_tid;
+
+    if(pthread_create(&heartbeat_tid, NULL, heartbeat_thread, NULL) != 0)
     {
-        printf("Failed to publish initial message\n");
-        mosquitto_destroy(mqtt_client);
-        mqtt_client = NULL;
+        fprintf(stderr, "Failed to create hearbeat thread");
         return MQTT_HANDLER_ERROR;
     }
-*/
+
+    pthread_detach(heartbeat_tid);
 
     return MQTT_HANDLER_OK;
+}
+
+void *heartbeat_thread(void *arg)
+{
+    while(1)
+    {
+        sleep(mqtt_parameters.heartbeat_interval);
+
+        cJSON *root = cJSON_CreateObject();
+        cJSON *data_array = cJSON_CreateArray();
+
+        for(uint8_t i = 0; i < NUMBER_OF_CHANNELS; i++)
+        {
+            cJSON_AddItemToArray(data_array,
+                                 create_status_item(i,
+                                                    gui_parameters.measurements[i].output_state
+                                                   )
+                                );
+
+        }
+
+        cJSON_AddItemToObject(root, "Data", data_array);
+
+        time_t timestamp = time(NULL);
+        cJSON_AddNumberToObject(root, "Timestamp", (double)timestamp);
+
+        char *json_string = cJSON_PrintUnformatted(root);
+
+        if(json_string)
+        {
+            publish_message("power_controller/heartbeat", json_string);
+            free(json_string);
+        }
+
+        cJSON_Delete(root);
+    }
+
 }
 
 mqtt_handler_status_t start_mqtt_client(void)

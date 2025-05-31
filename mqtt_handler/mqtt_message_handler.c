@@ -1,5 +1,4 @@
 #include "mqtt_message_handler.h"
-#include "cJSON.h"
 #include "mqtt_handler.h"
 #include "main.h"
 #include <string.h>
@@ -9,7 +8,6 @@ bool get_start_end_index(status_request_type_t request, uint8_t *start_index, ui
 bool validate_json_number(cJSON *parent, const char *key, uint8_t *out_value);
 
 cJSON *create_data_item(uint8_t id, uint8_t status, float voltage, float current);
-cJSON *create_status_item(uint8_t id, uint8_t status);
 
 void status_update_handler(const char* topic, const char* message)
 {

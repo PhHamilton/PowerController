@@ -15,6 +15,7 @@
             "topic": "power_controller/online",
             "QOS": 2,
             "retain": true
-        }
+        },
+        "heartbeat_interval": 60
     }
 }
