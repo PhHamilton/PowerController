@@ -5,6 +5,9 @@
 #include <string.h>
 #include <stdlib.h>
 
+bool get_start_end_index(status_request_type_t request, uint8_t *start_index, uint8_t *end_index);
+bool validate_json_number(cJSON *parent, const char *key, uint8_t *out_value);
+
 cJSON *create_data_item(uint8_t id, uint8_t status, float voltage, float current);
 cJSON *create_status_item(uint8_t id, uint8_t status);
 
@@ -18,20 +21,12 @@ void status_update_handler(const char* topic, const char* message)
         return;
     }
 
-    cJSON *request_item = cJSON_GetObjectItem(json, "Request");
-    if(!request_item)
+    uint8_t request;
+    if(!validate_json_number(json, "Request", &request))
     {
-        fprintf(stderr, "Missing 'Request' item\n");
+        cJSON_Delete(json);
         return;
     }
-
-    if(!cJSON_IsNumber(request_item))
-    {
-        fprintf(stderr, "'Request' item does not contain a number\n");
-        return;
-    }
-
-    status_request_type_t request = (status_request_type_t)request_item->valueint;
 
     cJSON *root = cJSON_CreateObject();
     cJSON *data_array = cJSON_CreateArray();
@@ -40,29 +35,12 @@ void status_update_handler(const char* topic, const char* message)
 
     uint8_t start = 0, end = 0;
 
-    switch(request)
+    if(!get_start_end_index((status_request_type_t)request, &start, &end))
     {
-        case ALL:
-        {
-            start = VOLTAGE_3V3;
-            end = VOLTAGE_NEG12V;
-        }
-        break;
-        case VOLTAGE_3V3:
-        case VOLTAGE_5V:
-        case VOLTAGE_12V:
-        case VOLTAGE_NEG12V:
-        {
-            start = end = request;
-            break;
-        }
-        default:
-        {
-            fprintf(stderr, "Unknown request %d\n", request);
-            cJSON_Delete(json);
-            cJSON_Delete(root);
-            return;
-        }
+        fprintf(stderr, "Unable to fetch loop indexes\n");
+        cJSON_Delete(json);
+        cJSON_Delete(root);
+        return;
     }
 
     for(uint8_t i = start; i <= end; i++)
@@ -86,14 +64,13 @@ void status_update_handler(const char* topic, const char* message)
 
     if(json_string)
     {
-        publish_message("power_controller/response", cJSON_PrintUnformatted(root));
+        publish_message("power_controller/response", json_string);
         free(json_string);
     }
 
     cJSON_Delete(json);
     cJSON_Delete(root);
 }
-
 
 void output_update_handler(const char* topic, const char* message)
 {
@@ -105,34 +82,18 @@ void output_update_handler(const char* topic, const char* message)
         return;
     }
 
-    cJSON *request_item = cJSON_GetObjectItem(json, "Request");
-    if(!request_item)
+    uint8_t request, status;
+    if(!validate_json_number(json, "Request", &request))
     {
-        fprintf(stderr, "Missing 'Request' item\n");
+        cJSON_Delete(json);
         return;
     }
 
-    if(!cJSON_IsNumber(request_item))
+    if(!validate_json_number(json, "Status", &status))
     {
-        fprintf(stderr, "'Request' item does not contain a number\n");
+        cJSON_Delete(json);
         return;
     }
-
-    cJSON *status_item = cJSON_GetObjectItem(json, "Status");
-    if(!status_item)
-    {
-        fprintf(stderr, "Missing 'Status' item\n");
-        return;
-    }
-
-    if(!cJSON_IsNumber(status_item))
-    {
-        fprintf(stderr, "'status' item does not contain a number\n");
-        return;
-    }
-
-    status_request_type_t request = (status_request_type_t)request_item->valueint;
-    uint8_t status = status_item->valueint;
 
     cJSON *root = cJSON_CreateObject();
     cJSON *data_array = cJSON_CreateArray();
@@ -141,41 +102,22 @@ void output_update_handler(const char* topic, const char* message)
 
     uint8_t start = 0, end = 0;
 
-    switch(request)
+    if(!get_start_end_index((status_request_type_t)request, &start, &end))
     {
-        case ALL:
-        {
-            start = VOLTAGE_3V3;
-            end = VOLTAGE_NEG12V;
-        }
-        break;
-        case VOLTAGE_3V3:
-        case VOLTAGE_5V:
-        case VOLTAGE_12V:
-        case VOLTAGE_NEG12V:
-        {
-            start = end = request;
-            break;
-        }
-        default:
-        {
-            fprintf(stderr, "Unknown request %d\n", request);
-            cJSON_Delete(json);
-            cJSON_Delete(root);
-            return;
-        }
+        fprintf(stderr, "Unable to fetch loop indexes\n");
+        cJSON_Delete(json);
+        cJSON_Delete(root);
+        return;
     }
 
     for(uint8_t i = start; i <= end; i++)
     {
         if(i < NUMBER_OF_CHANNELS)
         {
-
             if(status != gui_parameters.measurements[i].output_state)
             {
                 gui_parameters.measurements[i].output_state = status;
             }
-
 
             cJSON_AddItemToArray(
                                  data_array,
@@ -192,18 +134,20 @@ void output_update_handler(const char* topic, const char* message)
 
     if(json_string)
     {
-        publish_message("power_controller/response", cJSON_PrintUnformatted(root));
+        publish_message("power_controller/response", json_string);
         free(json_string);
     }
 
-
-    free(json);
-    free(root);
+    cJSON_Delete(json);
+    cJSON_Delete(root);
 }
 
 cJSON *create_data_item(uint8_t id, uint8_t status, float voltage, float current)
 {
     cJSON *data_item = cJSON_CreateObject();
+
+    if(!data_item) return NULL;
+
     cJSON_AddNumberToObject(data_item, "ID", id);
     cJSON_AddNumberToObject(data_item, "Status", status);
     cJSON_AddNumberToObject(data_item, "Voltage", voltage);
@@ -219,4 +163,50 @@ cJSON *create_status_item(uint8_t id, uint8_t status)
     cJSON_AddNumberToObject(data_item, "Status", status);
 
     return data_item;
+}
+
+bool get_start_end_index(status_request_type_t request, uint8_t *start_index, uint8_t *end_index)
+{
+    switch(request)
+    {
+        case ALL:
+        {
+            *start_index = VOLTAGE_3V3;
+            *end_index = VOLTAGE_NEG12V;
+        }
+        break;
+        case VOLTAGE_3V3:
+        case VOLTAGE_5V:
+        case VOLTAGE_12V:
+        case VOLTAGE_NEG12V:
+        {
+            *start_index = *end_index = request;
+            break;
+        }
+        default:
+        {
+            fprintf(stderr, "Unknown request %d\n", request);
+            return false;
+        }
+    }
+    return true;
+}
+
+bool validate_json_number(cJSON *parent, const char *key, uint8_t *out_value)
+{
+    cJSON *item = cJSON_GetObjectItem(parent, key);
+
+    if(!item)
+    {
+        fprintf(stderr, "Missing '%s' item\n", key);
+        return false;
+    }
+
+    if(!cJSON_IsNumber(item))
+    {
+        fprintf(stderr, "'%s' item is not a number\n", key);
+        return false;
+    }
+    *out_value = item->valueint;
+    return true;
 }
