@@ -1,6 +1,6 @@
 The messages sent shall be in JSON format
 Status message:
     {"Request": <Request type>}
-    <Request type>: Enum {ALL, 3V3, 5V, 12V, -12V}
+    <Request type>: Enum {3V3, 5V, 12V, -12V, ALL}
 Status response:
-    {"Request": <Request type>, "Data": [{"Voltage": <Voltage>, "Current:" <current>, "Power:" <power>}]
+    {"Request": <Request type>, "Data": [{"ID": <id>, "Voltage": <Voltage>, "Current:" <current>, "Power:" <power>}]
