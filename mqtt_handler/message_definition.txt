@@ -3,4 +3,8 @@ Status message:
     {"Request": <Request type>}
     <Request type>: Enum {3V3, 5V, 12V, -12V, ALL}
 Status response:
-    {"Request": <Request type>, "Data": [{"ID": <id>, "Voltage": <Voltage>, "Current:" <current>, "Power:" <power>}]
+    {"Request": <Request type>, "Data": [{"ID": <id>, "Status": <Status>, "Voltage": <Voltage>, "Current:" <current>, "Power:" <power>}]
+
+Update message
+    {"Request": <Request type>, "Status": <status>}
+    <status>: Enum {DISABLE, ENABLE}
