@@ -28,9 +28,9 @@ DEBUG = -D $(USELIB)
 ifeq ($(USELIB), USE_BCM2835_LIB)
     LIB = -lbcm2835 -lm -lmosquitto
 else ifeq ($(USELIB), USE_WIRINGPI_LIB)
-    LIB = -lwiringPi -lm -lmosquitto
+    LIB = -lwiringPi -lm -lmosquitto -lgpiod
 else ifeq ($(USELIB), USE_DEV_LIB)
-    LIB = -llgpio -lm -lmosquitto
+    LIB = -llgpio -lm -lmosquitto -lgpiod
 endif
 
 
