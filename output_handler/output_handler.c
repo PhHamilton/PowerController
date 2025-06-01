@@ -1,5 +1,9 @@
 #include "output_handler.h"
-#include "wiringPi.h"
+#include "gpiod.h"
+
+#define CHIP_NAME "gpiochip0"
+struct gpiod_chip *chip;
+struct gpiod_line *line[NUMBER_OF_CHANNELS];
 
 typedef struct
 {
@@ -9,27 +13,39 @@ typedef struct
 
 bool turn_on_output(uint8_t output_number);
 bool turn_off_output(uint8_t output_number);
+void cleanup_outputs(void);
 
 output_settings_t outputs[NUMBER_OF_CHANNELS];
 
 bool initialize_output_handler(const uint8_t pin_numbers[NUMBER_OF_CHANNELS])
 {
-
-
     printf("Initializing pins:\n");
+    chip = gpiod_chip_open_by_name(CHIP_NAME);
+
+    if(!chip)
+    {
+        printf("Unable to open %s\n", CHIP_NAME);
+        return false;
+    }
+
     for(uint8_t i = 0; i < NUMBER_OF_CHANNELS; i++)
     {
-        outputs[i].pin_number = pin_numbers[i];
+        line[i] = gpiod_chip_get_line(chip, pin_numbers[i]);
 
-        pinMode(i, OUTPUT);
-
-        printf(" Pin %i .. ", outputs[i].pin_number);
-        if(!turn_off_output(i))
+        if(!line[i])
         {
-            printf("FAILURE\n");
+            fprintf(stderr, "Failed to get line for GPIO %d\n", pin_numbers[i]);
             return false;
         }
-        printf("OK\n");
+
+        if(gpiod_line_request_output(line[i], "output_handler", 0) < 0)
+        {
+            perror("gpiod_line_request_output");
+            return false;
+        }
+
+        outputs[i].pin_number = pin_numbers[i];
+        outputs[i].state = OUTPUT_DISABLED;
     }
 
     return true;
@@ -79,30 +95,49 @@ bool reset_all_outputs(void)
 
 bool turn_off_output(uint8_t output_number)
 {
-    digitalWrite(outputs[output_number].pin_number, OUTPUT_DISABLED);
-    if(digitalRead(outputs[output_number].pin_number) == OUTPUT_DISABLED)
+    if(output_number > NUMBER_OF_CHANNELS)
     {
-        outputs[output_number].state = OUTPUT_DISABLED;
-        return true;
-    }
-    else
-    {
+        printf("output number out of range!\n");
         return false;
     }
 
+    if(gpiod_line_set_value(line[output_number], 0) < 0)
+    {
+        perror("gpiod_line_set_value (OFF)");
+        return false;
+    }
+
+    outputs[output_number].state = OUTPUT_DISABLED;
+
+    return true;
 }
 
 bool turn_on_output(uint8_t output_number)
 {
-    digitalWrite(outputs[output_number].pin_number, OUTPUT_ENABLED);
-
-    if(digitalRead(outputs[output_number].pin_number) == OUTPUT_ENABLED)
+    if(output_number > NUMBER_OF_CHANNELS)
     {
-        outputs[output_number].state = OUTPUT_ENABLED;
-        return true;
-    }
-    else
-    {
+        printf("output number out of range!\n");
         return false;
     }
+
+    if(gpiod_line_set_value(line[output_number], 1) < 0)
+    {
+        perror("gpiod_line_set_value (ON)");
+        return false;
+    }
+
+    outputs[output_number].state = OUTPUT_ENABLED;
+
+    return true;
+}
+void cleanup_outputs(void)
+{
+    for(uint8_t i = 0; i < NUMBER_OF_CHANNELS; i++)
+    {
+        if(line[i])
+        {
+            gpiod_line_release(line[i]);
+        }
+    }
+    gpiod_chip_close(chip);
 }
