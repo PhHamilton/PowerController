@@ -21,7 +21,7 @@ gui_parameters_t gui_parameters = {0};
 float default_voltages[NUMBER_OF_CHANNELS] = {3.3, 5, 12, -12};
 
 float rand_vec[3] = {2.54, 2.34, 2.55};
-const uint8_t output_pins[NUMBER_OF_CHANNELS] = {24, 25, 27, 28};
+const uint8_t output_pins[NUMBER_OF_CHANNELS] = {26, 19, 16, 20};
 
 
 INA219_t ina_data = {0};
@@ -68,20 +68,20 @@ int main(int argc, char *argv[])
     return false;
 */
 
+    printf("Initialixing wiringPi\n");
+
     if(wiringPiSetup() == -1)
     {
         printf("Failed to initialize wiringPi\n");
         return false;
     }
 
-    /*
     printf("Initializing output handler..\n");
     if(!initialize_output_handler(output_pins))
     {
         printf("Failed to output handler\r\n");
-        return 0;
+        return false;
     }
-    */
 
     gui_parameters.cursor_position = 0;
     gui_parameters.measurements[0].address = 0x40;
@@ -144,7 +144,8 @@ int main(int argc, char *argv[])
         // Read measurements
         for(uint8_t i = 0; i < NUMBER_OF_CHANNELS; i++)
         {
-            if(gui_parameters.measurements[i].output_state == OUTPUT_INACTIVE)
+            if(gui_parameters.measurements[i].output_state == OUTPUT_INACTIVE &&
+               get_output_state(i) == OUTPUT_DISABLED)
             {
                 continue;
             }
@@ -152,6 +153,7 @@ int main(int argc, char *argv[])
             if(get_output_state(i) == OUTPUT_ENABLED &&
                   gui_parameters.measurements[i].output_state == OUTPUT_INACTIVE)
                {
+                    printf("Turning off output\n");
                     if(!change_output_state(i, OUTPUT_DISABLED))
                     {
                         printf("Failed to change output state");
@@ -160,6 +162,7 @@ int main(int argc, char *argv[])
                else if(get_output_state(i) == OUTPUT_DISABLED &&
                   gui_parameters.measurements[i].output_state == OUTPUT_ACTIVE)
                {
+                    printf("Turning on output\n");
                     if(!change_output_state(i, OUTPUT_ENABLED))
                     {
                         printf("Failed to change output state");
