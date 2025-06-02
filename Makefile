@@ -93,3 +93,5 @@ ${DIR_BIN}/%.o: ${DIR_I2C}/%.c
 
 clean:
 	rm -f $(DIR_BIN)/*.o $(TARGET)
+
+-include $(OBJ_O:.o=.d)

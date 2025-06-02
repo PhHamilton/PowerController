@@ -2,8 +2,10 @@
 #include "gpiod.h"
 
 #define CHIP_NAME "gpiochip0"
+#define PSU_ENABLE_PIN 13
+
 struct gpiod_chip *chip;
-struct gpiod_line *line[NUMBER_OF_CHANNELS];
+struct gpiod_line *line[NUMBER_OF_CHANNELS + 1]; // +1 for PSU_ENABLE
 
 typedef struct
 {
@@ -13,7 +15,7 @@ typedef struct
 
 bool turn_on_output(uint8_t output_number);
 bool turn_off_output(uint8_t output_number);
-void cleanup_outputs(void);
+bool all_outputs_off(void);
 
 output_settings_t outputs[NUMBER_OF_CHANNELS];
 
@@ -38,7 +40,7 @@ bool initialize_output_handler(const uint8_t pin_numbers[NUMBER_OF_CHANNELS])
             return false;
         }
 
-        if(gpiod_line_request_output(line[i], "output_handler", 0) < 0)
+        if(gpiod_line_request_output(line[i], "output_handler", OUTPUT_DISABLED) < 0)
         {
             perror("gpiod_line_request_output");
             return false;
@@ -46,6 +48,21 @@ bool initialize_output_handler(const uint8_t pin_numbers[NUMBER_OF_CHANNELS])
 
         outputs[i].pin_number = pin_numbers[i];
         outputs[i].state = OUTPUT_DISABLED;
+    }
+
+    // No Channels = 4
+    line[NUMBER_OF_CHANNELS] = gpiod_chip_get_line(chip, PSU_ENABLE_PIN);
+
+    if(!line[NUMBER_OF_CHANNELS])
+    {
+        fprintf(stderr, "Failed to get line for GPIO %d\n", PSU_ENABLE_PIN);
+        return false;
+    }
+
+    if(gpiod_line_request_output(line[NUMBER_OF_CHANNELS], "output_handler", 1) < 0)
+    {
+        perror("gpiod_line_request_output");
+        return false;
     }
 
     return true;
@@ -101,13 +118,23 @@ bool turn_off_output(uint8_t output_number)
         return false;
     }
 
-    if(gpiod_line_set_value(line[output_number], 0) < 0)
+    if(gpiod_line_set_value(line[output_number], OUTPUT_DISABLED) < 0)
     {
         perror("gpiod_line_set_value (OFF)");
         return false;
     }
 
     outputs[output_number].state = OUTPUT_DISABLED;
+
+    if(all_outputs_off())
+    {
+        printf("Turning off PSU!\n");
+        if(gpiod_line_set_value(line[NUMBER_OF_CHANNELS], 1) < 0)
+        {
+            perror("gpiod_line_set_value (OFF)");
+            return false;
+        }
+    }
 
     return true;
 }
@@ -120,7 +147,7 @@ bool turn_on_output(uint8_t output_number)
         return false;
     }
 
-    if(gpiod_line_set_value(line[output_number], 1) < 0)
+    if(gpiod_line_set_value(line[output_number], OUTPUT_ENABLED) < 0)
     {
         perror("gpiod_line_set_value (ON)");
         return false;
@@ -128,11 +155,34 @@ bool turn_on_output(uint8_t output_number)
 
     outputs[output_number].state = OUTPUT_ENABLED;
 
+    if(!all_outputs_off())
+    {
+        printf("Turning on PSU!\n");
+        if(gpiod_line_set_value(line[NUMBER_OF_CHANNELS], 0) < 0)
+        {
+            perror("gpiod_line_set_value (OFF)");
+            return false;
+        }
+    }
+
+    return true;
+}
+
+bool all_outputs_off(void)
+{
+    for(uint8_t i = 0; i < NUMBER_OF_CHANNELS; i++)
+    {
+        printf("Output %i --> %i\n", i, outputs[i].state);
+        if(outputs[i].state == OUTPUT_ENABLED)
+        {
+            return false;
+        }
+    }
     return true;
 }
 void cleanup_outputs(void)
 {
-    for(uint8_t i = 0; i < NUMBER_OF_CHANNELS; i++)
+    for(uint8_t i = 0; i <= NUMBER_OF_CHANNELS; i++)
     {
         if(line[i])
         {

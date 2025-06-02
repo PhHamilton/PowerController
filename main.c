@@ -21,7 +21,7 @@ gui_parameters_t gui_parameters = {0};
 float default_voltages[NUMBER_OF_CHANNELS] = {3.3, 5, 12, -12};
 
 float rand_vec[3] = {2.54, 2.34, 2.55};
-const uint8_t output_pins[NUMBER_OF_CHANNELS] = {26, 19, 16, 20};
+const uint8_t output_pins[NUMBER_OF_CHANNELS] = {19, 26, 16, 20};
 
 
 INA219_t ina_data = {0};
@@ -35,6 +35,7 @@ void  Handler(int signo)
     DEV_ModuleExit();
 
     deconstruct_mqtt();
+    cleanup_outputs();
     exit(0);
 }
 
@@ -121,13 +122,22 @@ int main(int argc, char *argv[])
     ina_data.channel_config[0].max_current = 1.0f;
 
 
+    /*
     if(ina219_calibrate(&ina_data, 0) != INA219_OK)
     {
         printf("Failed to initialize ina219\r\n");
         return 0;
     }
+    */
 
     uint8_t i = 0;
+    /*
+    for(uint8_t j = 0; j < NUMBER_OF_CHANNELS; j++)
+    {
+        change_output_state(j, OUTPUT_ENABLED);
+    }
+    while(1);
+    */
 
     while(1)
     {
