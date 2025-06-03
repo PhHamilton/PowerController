@@ -126,21 +126,21 @@ void compose_current_string(float current, char c_string[MAX_STRING_SIZE/2])
 {
     if(current >= 10)
     {
-        sprintf(c_string, "%.1f A", current);
+        sprintf(c_string, "%.1f  A", current);
     }
     else if(current < 10 && current >= 1)
     {
-        sprintf(c_string, "%.2f A", current);
+        sprintf(c_string, "%.2f  A", current);
     }
     else
     {
         if(current*1000 < 100)
         {
-            sprintf(c_string, "%i   mA", (uint8_t)(current * 1000));
+            sprintf(c_string, "%i    mA", (uint16_t)(current * 1000));
         }
         else
         {
-            sprintf(c_string, "%i  mA", (uint8_t)(current * 1000));
+            sprintf(c_string, "%i  mA", (uint16_t)(current * 1000));
         }
     }
 

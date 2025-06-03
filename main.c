@@ -16,6 +16,7 @@
 
 #define DISPLAY_REFRESH_RATE 10
 #define ROTARY_REFRESH_RATE  50
+#define NUMBER_OF_CURRENT_MEASUREMENT_CHANNELS 3
 
 gui_parameters_t gui_parameters = {0};
 float default_voltages[NUMBER_OF_CHANNELS] = {3.3, 5, 12, -12};
@@ -115,7 +116,7 @@ int main(int argc, char *argv[])
     ina219[2].config.address = INA219_ADDRESS_3;
     ina219[2].config.shunt_resistance = 0.1f;
 
-    for(uint8_t i = 0; i < 3; i++)
+    for(uint8_t i = 0; i < NUMBER_OF_CURRENT_MEASUREMENT_CHANNELS; i++)
     {
         if(ina219_init(&ina219[i].config) != INA219_OK)
         {
@@ -154,36 +155,31 @@ int main(int argc, char *argv[])
                 if (!change_output_state(i, OUTPUT_ENABLED))
                     printf("Failed to change output state\n");
             }
-            else continue;
+            else
+            {
+
+            }
 
             if (gui_parameters.measurements[i].output_state == OUTPUT_ACTIVE)
             {
-                //if (ina219_read(&ina, i) != INA219_OK)
-                //    continue;
+                if(i < NUMBER_OF_CURRENT_MEASUREMENT_CHANNELS)
+                {
+                    if(ina219_read(&ina219[i].config, &ina219[i].data) == INA219_OK)
+                    {
+                        gui_parameters.measurements[i].voltage = ina219[i].data.voltage;
+                        gui_parameters.measurements[i].current = ina219[i].data.current;
 
-                //gui_parameters.measurements[i].voltage = ina.channel[i].data.voltage;
-                //gui_parameters.measurements[i].current = ina.channel[i].data.current;
+                        printf("Channel: %i, Voltage: %.3f V, Current: %.3f A, Power: %.3f W\n",
+                               i, ina219[i].data.voltage, ina219[i].data.current, ina219[i].data.power);
+                    }
+                }
             }
             else
             {
                 gui_parameters.measurements[i].voltage = default_voltages[i];
-                gui_parameters.measurements[i].current = 0;
+                gui_parameters.measurements[i].current = 0.0f;
             }
         }
-
-        for(uint8_t i = 0; i < 3; i++)
-        {
-            if(gui_parameters.measurements[i].output_state == OUTPUT_ACTIVE)
-            {
-                if(ina219_read(&ina219[i].config, &ina219[i].data) == INA219_OK)
-                {
-
-                    printf("Channel: %i, Voltage: %.3f V, Current: %.3f A, Power: %.3f W\n",
-                           i, ina219[i].data.voltage, ina219[i].data.current, ina219[i].data.power);
-                }
-            }
-        }
-
         update_gui(&gui_parameters);
         sleep_ms(100);
     }
