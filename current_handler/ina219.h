@@ -15,17 +15,31 @@ typedef struct {
     float current_lsb;
     float power_lsb;
     uint16_t calibration_value;
-} INA219_Config;
+} INA219_config_t;
 
 typedef struct {
     float voltage; // in volts
     float current; // in amperes
     float power;   // in watts
-} INA219_Data;
+} INA219_data_t;
 
+typedef struct
+{
+    INA219_config_t config;
+    INA219_data_t data;
+}INA219_channel_handler_t;
 
-int ina219_init(INA219_Config* conf);
-int ina219_read(INA219_Config* conf, INA219_Data* data);
+typedef enum
+{
+    INA219_OK = 0,
+    INA219_ERROR_I2C = -1,
+    INA219_WARNING_OLD_MEASUREMENT = -2,
+    INA219_WARNING_MATH_OVERFLOW = -3,
+    INA219_ERROR = -4
+}INA219_STATUS_t;
+
+INA219_STATUS_t ina219_init(INA219_config_t *conf);
+INA219_STATUS_t ina219_read(INA219_config_t *conf, INA219_data_t *data);
 
 /*
 #include <stdint.h>
@@ -58,13 +72,6 @@ typedef struct
     }channel[NUMBER_OF_CHANNELS];
 }INA219_channel_handler_t;
 
-typedef enum
-{
-    INA219_OK = 0,
-    INA219_ERROR_I2C = -1,
-    INA219_WARNING_OLD_MEASUREMENT = -2,
-    INA219_WARNING_MATH_OVERFLOW = -3
-} INA219_STATUS_t;
 
 INA219_STATUS_t ina219_initialize(INA219_config_t *conf);
 INA219_STATUS_t ina219_read(INA219_channel_handler_t *channel_handler, uint8_t channel);

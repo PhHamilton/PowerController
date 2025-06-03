@@ -105,36 +105,24 @@ int main(int argc, char *argv[])
     }
     */
 
-    INA219_Config ina_3v3 = {
-        .address = INA219_ADDRESS_1,
-        .shunt_resistance = 0.1f // Ohm
-    };
-    INA219_Config ina_5v = {
-        .address = INA219_ADDRESS_2,
-        .shunt_resistance = 0.1f // Ohm
-    };
-    INA219_Config ina_12v = {
-        .address = INA219_ADDRESS_3,
-        .shunt_resistance = 0.1f // Ohm
-    };
+    INA219_channel_handler_t ina219[3];
+    ina219[0].config.address = INA219_ADDRESS_1;
+    ina219[0].config.shunt_resistance = 0.1f;
 
-    INA219_Data data = {0};
+    ina219[1].config.address = INA219_ADDRESS_2;
+    ina219[1].config.shunt_resistance = 0.1f;
 
-    if (ina219_init(&ina_3v3) != 0) {
-        printf("INA219 init failed!\n");
-        return 1;
+    ina219[2].config.address = INA219_ADDRESS_3;
+    ina219[2].config.shunt_resistance = 0.1f;
+
+    for(uint8_t i = 0; i < 3; i++)
+    {
+        if(ina219_init(&ina219[i].config) != INA219_OK)
+        {
+            printf("INA219 init failed on channel %i\n", i);
+            return 1;
+        }
     }
-
-    if (ina219_init(&ina_5v) != 0) {
-        printf("INA219 init failed!\n");
-        return 1;
-    }
-
-    if (ina219_init(&ina_12v) != 0) {
-        printf("INA219 init failed!\n");
-        return 1;
-    }
-
 
     while (1)
     {
@@ -183,33 +171,16 @@ int main(int argc, char *argv[])
             }
         }
 
-        if(gui_parameters.measurements[0].output_state == OUTPUT_ACTIVE)
+        for(uint8_t i = 0; i < 3; i++)
         {
-            if (ina219_read(&ina_3v3, &data) == 0) {
-                printf("Voltage: %.3f V, Current: %.3f A, Power: %.3f W\n",
-                       data.voltage, data.current, data.power);
-            } else {
-                printf("Read failed!\n");
-            }
-       }
+            if(gui_parameters.measurements[i].output_state == OUTPUT_ACTIVE)
+            {
+                if(ina219_read(&ina219[i].config, &ina219[i].data) == INA219_OK)
+                {
 
-        if(gui_parameters.measurements[1].output_state == OUTPUT_ACTIVE)
-        {
-            if (ina219_read(&ina_5v, &data) == 0) {
-                printf("Voltage: %.3f V, Current: %.3f A, Power: %.3f W\n",
-                       data.voltage, data.current, data.power);
-            } else {
-                printf("Read failed!\n");
-            }
-        }
-
-        if(gui_parameters.measurements[2].output_state == OUTPUT_ACTIVE)
-        {
-            if (ina219_read(&ina_12v, &data) == 0) {
-                printf("Voltage: %.3f V, Current: %.3f A, Power: %.3f W\n",
-                       data.voltage, data.current, data.power);
-            } else {
-                printf("Read failed!\n");
+                    printf("Channel: %i, Voltage: %.3f V, Current: %.3f A, Power: %.3f W\n",
+                           i, ina219[i].data.voltage, ina219[i].data.current, ina219[i].data.power);
+                }
             }
         }
 

@@ -28,24 +28,24 @@ static int read_register(uint8_t addr, uint8_t reg, uint16_t* value) {
     return 0;
 }
 
-int ina219_init(INA219_Config* conf) {
-    if (!conf) return -1;
+int ina219_init(INA219_config_t* conf) {
+    if (!conf) return INA219_ERROR;
 
     // default config
     if (write_register(conf->address, INA219_REG_CONFIG, INA219_CONFIG_DEFAULT) < 0)
-        return -1;
+        return INA219_ERROR_I2C;
 
     conf->current_lsb = conf->shunt_resistance > 0 ? 1.0 / 1000.0 : 0.0001;
     conf->power_lsb = conf->current_lsb * 20;
     conf->calibration_value = (uint16_t)(0.04096f / (conf->current_lsb * conf->shunt_resistance));
 
     if (write_register(conf->address, INA219_REG_CALIB, conf->calibration_value) < 0)
-        return -1;
+        return INA219_ERROR_I2C;
 
-    return 0;
+    return INA219_OK;
 }
 
-int ina219_read(INA219_Config* conf, INA219_Data* data) {
+int ina219_read(INA219_config_t* conf, INA219_data_t* data) {
     if (!conf || !data) return -1;
 
     uint16_t raw_bus, raw_current, raw_power;
