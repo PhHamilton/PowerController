@@ -1,0 +1,14 @@
+[Unit]
+Description=Power Controller
+Wants=mosquitto.service
+After=mosquitto.service
+
+[Service]
+WorkingDirectory=/home/ares/PowerController/
+ExecStart=/home/ares/PowerController/out
+Restart=on-failure
+RestartSec=10
+KillMode=process
+
+[Install]
+WantedBy=multi-user.target
