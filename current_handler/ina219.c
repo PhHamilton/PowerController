@@ -1,137 +1,119 @@
 #include "ina219.h"
+#include <stdio.h>
+#include <wiringPiI2C.h>
 
-INA219_STATUS_t ina219_get_voltage(INA219_t *conf, uint8_t channel);
-INA219_STATUS_t ina219_get_current(INA219_t *conf, uint8_t channel);
-INA219_STATUS_t ina219_get_power(INA219_t *conf, uint8_t channel);
+#define INA219_REG_CONFIG      0x00
+#define INA219_REG_SHUNT_VOLT  0x01
+#define INA219_REG_BUS_VOLT    0x02
+#define INA219_REG_POWER       0x03
+#define INA219_REG_CURRENT     0x04
+#define INA219_REG_CALIB       0x05
 
-static uint16_t default_config = 0x399F;
+#define INA219_CONFIG_DEFAULT  0x399F
 
-typedef enum
-{
-    CONFIGURATION = 0x00,
-    SHUNT_VOLTAGE = 0x01,
-    BUS_VOLTAGE   = 0x02,
-    POWER         = 0x03,
-    CURRENT       = 0x04,
-    CALIBRATION   = 0x05
-}INA219_REG_ADDR_t;
-
-INA219_STATUS_t ina219_calibrate(INA219_t *conf, uint8_t channel)
-{
-    conf->shunt_resistance = SHUNT_RESISTANCE;
-
-    float current_lsb = conf->channel_config[channel].max_current / 32767;
-    float power_lsb = current_lsb * 20.0f;
-    uint16_t calibration_value = (uint16_t)(0.04096f / (current_lsb * SHUNT_RESISTANCE));
-
-
-    conf->channel_config[channel].current_lsb = current_lsb;
-    conf->channel_config[channel].power_lsb = power_lsb;
-    conf->channel_config[channel].calibration_value = calibration_value;
-
-    if(i2c_write_register(conf->channel_config[channel].address, CALIBRATION, calibration_value) != 0)
-    {
-        return INA219_ERROR_I2C;
-    }
-
-    return INA219_OK;
+static int write_register(uint8_t addr, uint8_t reg, uint16_t value) {
+    int fd = wiringPiI2CSetup(addr);
+    if (fd < 0) return -1;
+    int hi = (value >> 8) & 0xFF;
+    int lo = value & 0xFF;
+    return wiringPiI2CWriteReg16(fd, reg, (lo << 8) | hi);
 }
 
-INA219_STATUS_t ina219_turn_on_readings(INA219_t *conf, uint8_t channel)
-{
-    uint16_t raw = default_config | 0x07;
-
-    if(i2c_write_register(conf->channel_config[channel].address, CONFIGURATION, raw) != 0)
-    {
-        return INA219_ERROR_I2C;
-    }
-
-    return INA219_OK;
+static int read_register(uint8_t addr, uint8_t reg, uint16_t* value) {
+    int fd = wiringPiI2CSetup(addr);
+    if (fd < 0) return -1;
+    int raw = wiringPiI2CReadReg16(fd, reg);
+    if (raw < 0) return -1;
+    *value = ((raw & 0xFF) << 8) | (raw >> 8);
+    return 0;
 }
 
-INA219_STATUS_t ina219_turn_off_readings(INA219_t *conf, uint8_t channel)
-{
-    uint16_t raw = default_config | 0x00;
+int ina219_init(INA219_Config* conf) {
+    if (!conf) return -1;
 
-    if(i2c_write_register(conf->channel_config[channel].address, CONFIGURATION, raw) != 0)
-    {
-        return INA219_ERROR_I2C;
-    }
+    // default config
+    if (write_register(conf->address, INA219_REG_CONFIG, INA219_CONFIG_DEFAULT) < 0)
+        return -1;
 
-    return INA219_OK;
+    conf->current_lsb = conf->shunt_resistance > 0 ? 1.0 / 1000.0 : 0.0001;
+    conf->power_lsb = conf->current_lsb * 20;
+    conf->calibration_value = (uint16_t)(0.04096f / (conf->current_lsb * conf->shunt_resistance));
+
+    if (write_register(conf->address, INA219_REG_CALIB, conf->calibration_value) < 0)
+        return -1;
+
+    return 0;
 }
 
-INA219_STATUS_t ina219_measure(INA219_t *conf, uint8_t channel)
+int ina219_read(INA219_Config* conf, INA219_Data* data) {
+    if (!conf || !data) return -1;
+
+    uint16_t raw_bus, raw_current, raw_power;
+    if (read_register(conf->address, INA219_REG_BUS_VOLT, &raw_bus) < 0) return -1;
+    if (read_register(conf->address, INA219_REG_CURRENT, &raw_current) < 0) return -1;
+    if (read_register(conf->address, INA219_REG_POWER, &raw_power) < 0) return -1;
+
+    data->voltage = ((raw_bus >> 3) * 0.004f); // 4mV per bit
+    data->current = (int16_t)raw_current * conf->current_lsb;
+    data->power = raw_power * conf->power_lsb;
+
+    return 0;
+}
+/*
+static int read_register(INA219_config_t *conf, uint8_t reg, uint16_t *value);
+static int write_register(INA219_config_t *conf, uint8_t reg, uint16_t value);
+
+INA219_STATUS_t ina219_initialize(INA219_config_t *conf)
 {
-    INA219_STATUS_t rc = INA219_OK;
-    rc = ina219_get_voltage(conf, channel);
+    if (!conf) return -1;
 
-    if(rc != INA219_OK)
-    {
-        return rc;
-    }
+    conf->fd = wiringPiI2CSetup(conf->address);
+    if (conf->fd < 0) return -1;
 
-    rc = ina219_get_current(conf, channel);
+    conf->current_lsb = (conf->shunt_resistance > 0) ? 1.0f / 1000.0f : 0.0001f;
+    conf->power_lsb = conf->current_lsb * 20.0f;
+    conf->calibration_value = (uint16_t)(0.04096f / (conf->current_lsb * conf->shunt_resistance));
 
-    if(rc != INA219_OK)
-    {
-        return rc;
-    }
+    if (write_register(conf, INA219_REG_CONFIG, INA219_CONFIG_DEFAULT) < 0)
+        return -1;
+    if (write_register(conf, INA219_REG_CALIB, conf->calibration_value) < 0)
+        return -1;
 
-    return ina219_get_power(conf, channel);
+    return 0;
 }
 
-INA219_STATUS_t ina219_reset(INA219_t *conf)
+INA219_STATUS_t ina219_read(INA219_channel_handler_t *channel_handler, uint8_t channel)
 {
-    for(uint8_t i = 0; i < NUMBER_OF_CHANNELS; i++)
-    {
-        if(i2c_write_register(conf->channel_config[i].address, CONFIGURATION, 0x8000) != 0)
-            return INA219_ERROR_I2C;
-    }
-    return INA219_OK;
+    if (!channel_handler) return -1;
+
+    INA219_config_t *conf = &channel_handler->channel[channel].config;
+    INA219_data_t *data = &channel_handler->channel[channel].data;
+
+    uint16_t raw_bus, raw_current, raw_power;
+
+    if (read_register(conf, INA219_REG_BUS_VOLT, &raw_bus) < 0) return -1;
+    if (read_register(conf, INA219_REG_CURRENT, &raw_current) < 0) return -1;
+    if (read_register(conf, INA219_REG_POWER, &raw_power) < 0) return -1;
+
+    data->voltage = ((raw_bus >> 3) * 0.004f);
+    data->current = (int16_t)raw_current * conf->current_lsb;
+    data->power   = raw_power * conf->power_lsb;
+
+    return 0;
 }
 
-INA219_STATUS_t ina219_get_voltage(INA219_t *conf, uint8_t channel)
+static int write_register(INA219_config_t *conf, uint8_t reg, uint16_t value)
 {
-    uint16_t raw = 0;
-    if(i2c_read_register(conf->channel_config[channel].address, BUS_VOLTAGE, &raw) != 0)
-    {
-        return INA219_ERROR_I2C;
-    }
-
-    conf->channel_data[channel].voltage = ((uint8_t)(raw >> 3) * 0.004f);
-
-    if(raw & 0x01)
-        return INA219_WARNING_MATH_OVERFLOW;
-
-    if(raw & 0x02)
-        return INA219_WARNING_OLD_MEASUREMENT;
-
-    return INA219_OK;
+    int hi = (value >> 8) & 0xFF;
+    int lo = value & 0xFF;
+    return wiringPiI2CWriteReg16(conf->fd, reg, (lo << 8) | hi);
 }
 
-INA219_STATUS_t ina219_get_current(INA219_t *conf, uint8_t channel)
+static int read_register(INA219_config_t *conf, uint8_t reg, uint16_t* value)
 {
-    uint16_t raw = 0;
-    if(i2c_read_register(conf->channel_config[channel].address, CURRENT, &raw) != 0)
-    {
-        return INA219_ERROR_I2C;
-    }
-
-    conf->channel_data[channel].current = (int16_t)raw * conf->channel_config[channel].current_lsb;
-
-    return INA219_OK;
+    int raw = wiringPiI2CReadReg16(conf->fd, reg);
+    if (raw < 0) return -1;
+    *value = ((raw & 0xFF) << 8) | (raw >> 8);
+    return 0;
 }
-
-INA219_STATUS_t ina219_get_power(INA219_t *conf, uint8_t channel)
-{
-    uint16_t raw = 0;
-    if(i2c_read_register(conf->channel_config[channel].address, POWER, &raw) != 0)
-    {
-        return INA219_ERROR_I2C;
-    }
-
-    conf->channel_data[channel].power = conf->channel_config[channel].power_lsb;
-
-    return INA219_OK;
-}
+*/

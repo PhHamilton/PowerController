@@ -1,36 +1,30 @@
-#include <stdlib.h>     //exit()
-#include <signal.h>     //signal()
+#include <stdlib.h>
+#include <signal.h>
 #include <string.h>
 #include <wiringPi.h>
 #include <unistd.h>
-#include "mqtt_handler.h"
-#include "mqtt_message_handler.h"
-
 #include <time.h>
 #include <errno.h>
+#include <stdio.h>
 
-#define DISPLAY_REFRESH_RATE 10
-#define ROTARY_REFRESH_RATE  50
-
+#include "mqtt_handler.h"
+#include "mqtt_message_handler.h"
 #include "gui_handler.h"
 #include "rotary_encoder_handler.h"
 #include "ina219.h"
 #include "output_handler.h"
 
+#define DISPLAY_REFRESH_RATE 10
+#define ROTARY_REFRESH_RATE  50
+
 gui_parameters_t gui_parameters = {0};
 float default_voltages[NUMBER_OF_CHANNELS] = {3.3, 5, 12, -12};
-
-float rand_vec[3] = {2.54, 2.34, 2.55};
 const uint8_t output_pins[NUMBER_OF_CHANNELS] = {19, 26, 16, 20};
-
-
-INA219_t ina_data = {0};
 
 void sleep_ms(uint32_t m_sec);
 
-void  Handler(int signo)
+void Handler(int signo)
 {
-    //System Exit
     printf("\r\nHandler:exit\r\n");
     DEV_ModuleExit();
 
@@ -39,11 +33,8 @@ void  Handler(int signo)
     exit(0);
 }
 
-
-
 int main(int argc, char *argv[])
 {
-    // Exception handling:ctrl + c
     signal(SIGINT, Handler);
 
     const char* config_path = "./mqtt_handler/config.json";
@@ -64,13 +55,7 @@ int main(int argc, char *argv[])
         return false;
     }
 
-/*
-    while(1);
-    return false;
-*/
-
     printf("Initialixing wiringPi\n");
-
     if(wiringPiSetup() == -1)
     {
         printf("Failed to initialize wiringPi\n");
@@ -85,26 +70,14 @@ int main(int argc, char *argv[])
     }
 
     gui_parameters.cursor_position = 0;
-    gui_parameters.measurements[0].address = 0x40;
-    gui_parameters.measurements[0].voltage = 3.3f;
-    gui_parameters.measurements[0].current = 2;
-    gui_parameters.measurements[0].output_state = OUTPUT_INACTIVE;
 
-    gui_parameters.measurements[1].address = 0x41;
-    gui_parameters.measurements[1].voltage = 5;
-    gui_parameters.measurements[1].current = 0.23;
-    gui_parameters.measurements[1].output_state = OUTPUT_INACTIVE;
-
-    gui_parameters.measurements[2].address = 0x44;
-    gui_parameters.measurements[2].voltage = 12;
-    gui_parameters.measurements[2].current = 0.02;
-    gui_parameters.measurements[2].output_state = OUTPUT_INACTIVE;
-
-    gui_parameters.measurements[3].address = 0x45;
-    gui_parameters.measurements[3].voltage = -12;
-    gui_parameters.measurements[3].current = 0.02;
-    gui_parameters.measurements[3].output_state = OUTPUT_INACTIVE;
-
+    // Init measurements
+    for (int i = 0; i < NUMBER_OF_CHANNELS; i++) {
+        gui_parameters.measurements[i].address = 0x40 + i;
+        gui_parameters.measurements[i].voltage = default_voltages[i];
+        gui_parameters.measurements[i].current = 0;
+        gui_parameters.measurements[i].output_state = OUTPUT_INACTIVE;
+    }
 
     if(initialize_gui() != GUI_OK)
     {
@@ -118,79 +91,129 @@ int main(int argc, char *argv[])
         return 0;
     }
 
-    ina_data.channel_config[0].address = 0x40;
-    ina_data.channel_config[0].max_current = 1.0f;
-
-
     /*
-    if(ina219_calibrate(&ina_data, 0) != INA219_OK)
-    {
-        printf("Failed to initialize ina219\r\n");
-        return 0;
+    INA219_channel_handler_t ina = {0};
+
+    for (uint8_t i = 0; i < 1; i++) {
+        ina.channel[i].config.address = 0x40 + i;
+        ina.channel[i].config.shunt_resistance = 0.1f;
+
+        if (ina219_initialize(&ina.channel[i].config) < 0) {
+            printf("Failed to initialize INA219 on channel %d\n", i);
+            return 0;
+        }
     }
     */
 
-    uint8_t i = 0;
-    /*
-    for(uint8_t j = 0; j < NUMBER_OF_CHANNELS; j++)
-    {
-        change_output_state(j, OUTPUT_ENABLED);
-    }
-    while(1);
-    */
+    INA219_Config ina_3v3 = {
+        .address = INA219_ADDRESS_1,
+        .shunt_resistance = 0.1f // Ohm
+    };
+    INA219_Config ina_5v = {
+        .address = INA219_ADDRESS_2,
+        .shunt_resistance = 0.1f // Ohm
+    };
+    INA219_Config ina_12v = {
+        .address = INA219_ADDRESS_3,
+        .shunt_resistance = 0.1f // Ohm
+    };
 
-    while(1)
+    INA219_Data data = {0};
+
+    if (ina219_init(&ina_3v3) != 0) {
+        printf("INA219 init failed!\n");
+        return 1;
+    }
+
+    if (ina219_init(&ina_5v) != 0) {
+        printf("INA219 init failed!\n");
+        return 1;
+    }
+
+    if (ina219_init(&ina_12v) != 0) {
+        printf("INA219 init failed!\n");
+        return 1;
+    }
+
+
+    while (1)
     {
         gui_parameters.cursor_position = get_position();
         int8_t switch_pressed = check_switch();
 
         if(switch_pressed != SWITCH_NOT_PRESSED)
         {
-            gui_parameters.measurements[switch_pressed].output_state = gui_parameters.measurements[switch_pressed].output_state == OUTPUT_ACTIVE ? OUTPUT_INACTIVE : OUTPUT_ACTIVE;
-            ina219_measure(&ina_data, 0);
-            printf("Voltage: %f, Current: %f, Power: %f\n", ina_data.channel_data[0].voltage, ina_data.channel_data[0].current, ina_data.channel_data[0].power);
+            gui_parameters.measurements[switch_pressed].output_state ^= 1;
         }
 
-        // Read measurements
-        for(uint8_t i = 0; i < NUMBER_OF_CHANNELS; i++)
+        for (uint8_t i = 0; i < NUMBER_OF_CHANNELS; i++)
         {
-            if(gui_parameters.measurements[i].output_state == OUTPUT_INACTIVE &&
-               get_output_state(i) == OUTPUT_DISABLED)
-            {
+            if (gui_parameters.measurements[i].output_state == OUTPUT_INACTIVE &&
+                get_output_state(i) == OUTPUT_DISABLED)
                 continue;
-            }
 
-            if(get_output_state(i) == OUTPUT_ENABLED &&
-                  gui_parameters.measurements[i].output_state == OUTPUT_INACTIVE)
-               {
-                    printf("Turning off output\n");
-                    if(!change_output_state(i, OUTPUT_DISABLED))
-                    {
-                        printf("Failed to change output state");
-                    }
-               }
-               else if(get_output_state(i) == OUTPUT_DISABLED &&
-                  gui_parameters.measurements[i].output_state == OUTPUT_ACTIVE)
-               {
-                    printf("Turning on output\n");
-                    if(!change_output_state(i, OUTPUT_ENABLED))
-                    {
-                        printf("Failed to change output state");
-                    }
-               }
-               else
-               {
-                    continue;
-               }
+            if (get_output_state(i) == OUTPUT_ENABLED &&
+                gui_parameters.measurements[i].output_state == OUTPUT_INACTIVE)
+            {
+                printf("Turning off output\n");
+                if (!change_output_state(i, OUTPUT_DISABLED))
+                    printf("Failed to change output state\n");
+            }
+            else if (get_output_state(i) == OUTPUT_DISABLED &&
+                     gui_parameters.measurements[i].output_state == OUTPUT_ACTIVE)
+            {
+                printf("Turning on output\n");
+                if (!change_output_state(i, OUTPUT_ENABLED))
+                    printf("Failed to change output state\n");
+            }
+            else continue;
+
+            if (gui_parameters.measurements[i].output_state == OUTPUT_ACTIVE)
+            {
+                //if (ina219_read(&ina, i) != INA219_OK)
+                //    continue;
+
+                //gui_parameters.measurements[i].voltage = ina.channel[i].data.voltage;
+                //gui_parameters.measurements[i].current = ina.channel[i].data.current;
+            }
+            else
+            {
+                gui_parameters.measurements[i].voltage = default_voltages[i];
+                gui_parameters.measurements[i].current = 0;
+            }
         }
 
-        gui_parameters.measurements[0].current = rand_vec[i];
+        if(gui_parameters.measurements[0].output_state == OUTPUT_ACTIVE)
+        {
+            if (ina219_read(&ina_3v3, &data) == 0) {
+                printf("Voltage: %.3f V, Current: %.3f A, Power: %.3f W\n",
+                       data.voltage, data.current, data.power);
+            } else {
+                printf("Read failed!\n");
+            }
+       }
+
+        if(gui_parameters.measurements[1].output_state == OUTPUT_ACTIVE)
+        {
+            if (ina219_read(&ina_5v, &data) == 0) {
+                printf("Voltage: %.3f V, Current: %.3f A, Power: %.3f W\n",
+                       data.voltage, data.current, data.power);
+            } else {
+                printf("Read failed!\n");
+            }
+        }
+
+        if(gui_parameters.measurements[2].output_state == OUTPUT_ACTIVE)
+        {
+            if (ina219_read(&ina_12v, &data) == 0) {
+                printf("Voltage: %.3f V, Current: %.3f A, Power: %.3f W\n",
+                       data.voltage, data.current, data.power);
+            } else {
+                printf("Read failed!\n");
+            }
+        }
+
         update_gui(&gui_parameters);
-        i++;
-
-        if(i > 2)
-         i = 0;
-
         sleep_ms(100);
     }
 
@@ -200,19 +223,12 @@ int main(int argc, char *argv[])
 void sleep_ms(uint32_t m_sec)
 {
     struct timespec ts;
-    int8_t res;
-
     if(m_sec < 0)
     {
         errno = EINVAL;
         return;
     }
-
-    ts.tv_sec = m_sec/1000;
+    ts.tv_sec = m_sec / 1000;
     ts.tv_nsec = (m_sec % 1000) * 1000000;
-
-    do
-    {
-        res = nanosleep(&ts, &ts);
-    } while (res && errno == EINTR);
+    nanosleep(&ts, NULL);
 }

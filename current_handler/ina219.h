@@ -1,35 +1,62 @@
 #ifndef __INA219_H__
 #define __INA219_H__
-
+#include <math.h>
+#include <wiringPiI2C.h>
+#include <unistd.h>
 #include <stdint.h>
+
+#define INA219_ADDRESS_1 0x40
+#define INA219_ADDRESS_2 0x41
+#define INA219_ADDRESS_3 0x44
+
+typedef struct {
+    uint8_t address;
+    float shunt_resistance;
+    float current_lsb;
+    float power_lsb;
+    uint16_t calibration_value;
+} INA219_Config;
+
+typedef struct {
+    float voltage; // in volts
+    float current; // in amperes
+    float power;   // in watts
+} INA219_Data;
+
+
+int ina219_init(INA219_Config* conf);
+int ina219_read(INA219_Config* conf, INA219_Data* data);
+
+/*
+#include <stdint.h>
+#include <stddef.h>
 #include "i2c_handler.h"
 #include "main.h"
 
-#define SHUNT_RESISTANCE 0.1
+#define SHUNT_RESISTANCE 0.1f
 
-//extern int i2c_write_register(uint8_t addr, uint8_t reg, uint16_t value);
-//extern int i2c_read_register(uint8_t addr, uint8_t reg, uint16_t *value);
+typedef struct {
+    uint8_t address;
+    float shunt_resistance;
+    float current_lsb;
+    float power_lsb;
+    uint16_t calibration_value;
+}INA219_config_t;
+
+typedef struct {
+    float voltage; // in volts
+    float current; // in amperes
+    float power;   // in watts
+}INA219_data_t;
 
 typedef struct
 {
-    float shunt_resistance;
-
     struct
     {
-        uint8_t address;
-        float max_current;
-        float current_lsb;
-        float power_lsb;
-        uint16_t calibration_value;
-   }channel_config[NUMBER_OF_CHANNELS];
-
-    struct
-    {
-        float voltage;
-        float current;
-        float power;
-    }channel_data[NUMBER_OF_CHANNELS];
-}INA219_t;
+       INA219_config_t config;
+       INA219_data_t data;
+    }channel[NUMBER_OF_CHANNELS];
+}INA219_channel_handler_t;
 
 typedef enum
 {
@@ -37,12 +64,10 @@ typedef enum
     INA219_ERROR_I2C = -1,
     INA219_WARNING_OLD_MEASUREMENT = -2,
     INA219_WARNING_MATH_OVERFLOW = -3
-}INA219_STATUS_t;
+} INA219_STATUS_t;
 
-INA219_STATUS_t ina219_calibrate(INA219_t *conf, uint8_t channel);
-INA219_STATUS_t ina219_measure(INA219_t *conf, uint8_t channel);
-INA219_STATUS_t ina219_turn_on_readings(INA219_t *conf, uint8_t channel);
-INA219_STATUS_t ina219_turn_off_readings(INA219_t *conf, uint8_t channel);
-INA219_STATUS_t ina219_reset(INA219_t *conf);
+INA219_STATUS_t ina219_initialize(INA219_config_t *conf);
+INA219_STATUS_t ina219_read(INA219_channel_handler_t *channel_handler, uint8_t channel);
+*/
 
 #endif //__INA219_H__
